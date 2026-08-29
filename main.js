@@ -38,6 +38,9 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
     let currentLevelForAddBook = null; // Store the level index when adding a book
     let currentLevelIndex = null;
     let currentSubjectIndex = null;
+    let markedAsNo = {};
+    let bookStatistics = {};
+    let shopPhone = "";
     let searchTerm = "";
     let userChosenBooksDocRef = null; // Reference to user's chosen books document
     
@@ -1835,10 +1838,12 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
           <tr>
             <th>الكتاب</th>
             <th>العدد</th>
+            <th>لا</th>
             <th>إزالة</th>
           </tr>`;
         // Sort the books alphabetically within each table for better organization.
         Object.keys(books).sort((a, b) => a.localeCompare(b, 'ar')).forEach(book => {
+          const isMarkedNo = markedAsNo[levelName] && markedAsNo[levelName][book];
           html += `<tr>
             <td>${book}</td>
             <td>
@@ -1849,6 +1854,9 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
                        onclick="this.select()" style="width:64px; text-align:center;">
                 <button title="أضف واحد" style="padding:2px 8px; border:1px solid #e2e8f0; background:#f7fafc; border-radius:4px; cursor:pointer;" onclick="changeBookCount('${levelName}','${book}', 1)">+</button>
               </div>
+            </td>
+            <td>
+              <input type="checkbox" onchange="toggleMarkedAsNo('${levelName}', '${book.replace(/'/g, "\\'")}', this.checked)" ${isMarkedNo ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer;">
             </td>
             <td>
               <button class="remove-book-btn" onclick="removeBook('${levelName}','${book}')">حذف</button>
@@ -1909,6 +1917,23 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       }
 
       if (confirm("هل أنت متأكد من أنك تريد مسح جميع الكتب المختارة؟ هذا الإجراء لا يمكن التراجع عنه.")) {
+        // حساب الإحصائيات للكتب التي لم يتم تحديد "لا" عليها
+        let hasChanges = false;
+        Object.keys(chosenBooks).forEach(levelName => {
+          Object.keys(chosenBooks[levelName]).forEach(book => {
+            const count = chosenBooks[levelName][book];
+            const isNo = markedAsNo[levelName] && markedAsNo[levelName][book];
+            if (!isNo) {
+               if (typeof bookStatistics[levelName] !== 'object') bookStatistics[levelName] = {};
+               bookStatistics[levelName][book] = (bookStatistics[levelName][book] || 0) + count;
+               hasChanges = true;
+            }
+          });
+        });
+        if (hasChanges) {
+          appDataDocRef.set({ bookStatistics }, { merge: true });
+        }
+
         // حفظ نسخة قبل المسح للأرشفة
         const snapshot = JSON.parse(JSON.stringify(chosenBooks));
         let totalLines = 0;
@@ -1918,7 +1943,18 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         });
         try { addToArchive('delete', 'book', `مسح جميع الكتب المختارة (${totalLines} كتاب/سطر، مجموع النسخ: ${totalQuantity})`, { payload: { type: 'chosen_books_clear_all', chosenBooks: snapshot } }); } catch (e) { /* ignore */ }
 
-        chosenBooks = {};
+        // Filter chosenBooks to retain ONLY items marked as No
+        const newChosenBooks = {};
+        Object.keys(chosenBooks).forEach(levelName => {
+          Object.keys(chosenBooks[levelName]).forEach(book => {
+            if (markedAsNo[levelName] && markedAsNo[levelName][book]) {
+               if (!newChosenBooks[levelName]) newChosenBooks[levelName] = {};
+               newChosenBooks[levelName][book] = chosenBooks[levelName][book];
+            }
+          });
+        });
+        chosenBooks = newChosenBooks;
+        markedAsNo = {}; // reset markings after clearing
         saveData(); // Save the cleared state
         // Re-render the UI
         renderChosenBooksTables();
@@ -3281,6 +3317,19 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         const appDataDoc = await appDataDocRef.get();
         if (appDataDoc.exists) {
           const data = appDataDoc.data();
+          if (data.bookStatistics) {
+            bookStatistics = data.bookStatistics;
+            // التحقق إذا كانت البنية قديمة (رقم بدلاً من كائن للمستوى) وتصفيرها
+            for (const key in bookStatistics) {
+              if (typeof bookStatistics[key] !== 'object') {
+                bookStatistics = {};
+                break;
+              }
+            }
+          }
+          if (data.shopPhone) shopPhone = data.shopPhone;
+          if (document.getElementById('shopPhoneInput')) document.getElementById('shopPhoneInput').value = shopPhone;
+          
           if (data.levels && data.levels.length > 0) {
             levels = data.levels;
             localStorage.setItem('bookAppData_levels', JSON.stringify({ levels }));
@@ -11071,4 +11120,126 @@ window.downloadAttachment = downloadAttachment;
 window.showInboxMessages = showInboxMessages;
 window.createInboxModal = createInboxModal;
 window.showMessageDetailsModal = showMessageDetailsModal;
-window.createMessageDetailsModal = createMessageDetailsModal;
+window.createMessageDetailsModal = createMessageDetailsModal;
+    window.toggleMarkedAsNo = function(levelName, book, isChecked) {
+      if (!markedAsNo[levelName]) markedAsNo[levelName] = {};
+      markedAsNo[levelName][book] = isChecked;
+    };
+
+    window.saveShopPhone = function() {
+      const phone = document.getElementById('shopPhoneInput').value.trim();
+      appDataDocRef.set({ shopPhone: phone }, { merge: true }).then(() => {
+        showTemporaryAlert("تم حفظ رقم الهاتف بنجاح", "success");
+      });
+    };
+
+    window.showBookStatisticsModal = function() {
+      const container = document.getElementById('bookStatisticsContainer');
+      container.innerHTML = '';
+      
+      if (Object.keys(bookStatistics).length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 30px; color: #718096;">لا توجد إحصائيات حتى الآن</div>';
+      } else {
+        // ترتيب المستويات حسب الموجود في levels لضمان الترتيب الصحيح إذا أمكن
+        const levelNames = Object.keys(bookStatistics);
+        levelNames.forEach(levelName => {
+           const booksObj = bookStatistics[levelName];
+           if (Object.keys(booksObj).length === 0) return;
+           
+           const sortedBooks = Object.keys(booksObj).sort((a, b) => booksObj[b] - booksObj[a]);
+           
+           let html = `<div style="text-align:center; margin-top:20px; margin-bottom:15px;">
+              <h4 style="margin:0; padding:8px 15px; background:linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); color:#2d3748; border-radius:15px; display:inline-block; font-weight:600; border: 1px solid #e2e8f0;">${escapeHTML(levelName)}</h4>
+            </div>
+            <table class="chosen-books-table" style="width:100%; margin-bottom: 20px;">
+              <thead>
+                <tr>
+                  <th>الكتاب</th>
+                  <th>مرات الطلب</th>
+                </tr>
+              </thead>
+              <tbody>`;
+              
+            sortedBooks.forEach(book => {
+               html += `<tr>
+                 <td>${escapeHTML(book)}</td>
+                 <td style="text-align:center; font-weight:bold;">${booksObj[book]}</td>
+               </tr>`;
+            });
+            
+            html += `</tbody></table>`;
+            container.innerHTML += html;
+        });
+      }
+      
+      document.getElementById('bookStatisticsModal').style.display = 'flex';
+    };
+
+    window.printBookStatistics = function() {
+      if (Object.keys(bookStatistics).length === 0) {
+         alert("لا توجد إحصائيات للطباعة");
+         return;
+      }
+      
+      let htmlContent = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>إحصائيات الكتب المطلوبة</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+    body { font-family: 'Tajawal', sans-serif; padding: 20px; color: #1a202c; background: white; }
+    h1 { text-align: center; color: #2d3748; margin-bottom: 5px; }
+    .phone-header { text-align: center; font-size: 1.2rem; color: #4a5568; margin-bottom: 30px; }
+    .level-title { text-align: center; margin-top: 30px; margin-bottom: 15px; }
+    .level-title span { background: #edf2f7; padding: 8px 20px; border-radius: 15px; font-weight: bold; border: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+    th, td { padding: 10px; border: 1px solid #cbd5e0; text-align: right; }
+    th { background-color: #f7fafc; color: #4a5568; }
+    td:last-child, th:last-child { text-align: center; width: 100px; }
+    @media print {
+      body { padding: 0; }
+      @page { margin: 1cm; }
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 إحصائيات الكتب المطلوبة</h1>
+  ${shopPhone ? `<div class="phone-header">📞 ${escapeHTML(shopPhone)}</div>` : ''}
+`;
+
+      const levelNames = Object.keys(bookStatistics);
+      levelNames.forEach(levelName => {
+         const booksObj = bookStatistics[levelName];
+         if (Object.keys(booksObj).length === 0) return;
+         
+         const sortedBooks = Object.keys(booksObj).sort((a, b) => booksObj[b] - booksObj[a]);
+         htmlContent += `<div class="level-title"><span>${escapeHTML(levelName)}</span></div>
+          <table>
+            <thead>
+              <tr>
+                <th>الكتاب</th>
+                <th>مرات الطلب</th>
+              </tr>
+            </thead>
+            <tbody>`;
+            
+          sortedBooks.forEach(book => {
+             htmlContent += `<tr>
+               <td>${escapeHTML(book)}</td>
+               <td>${booksObj[book]}</td>
+             </tr>`;
+          });
+          htmlContent += `</tbody></table>`;
+      });
+      
+      htmlContent += `</body></html>`;
+      
+      const win = window.open('', '_blank');
+      win.document.write(htmlContent);
+      win.document.close();
+      win.onload = () => {
+         win.print();
+      };
+    };
+
