@@ -652,6 +652,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
             <span>${escapeHTML(pageTitle)}</span>
             ${isArchive ? '<span class="archive-tag">من الأرشيف</span>' : ''}
           </h1>
+          ${shopPhone ? `<div style="font-size: 1.2rem; color: #4a5568; margin-top: 5px; margin-bottom: 5px;">📞 ${escapeHTML(shopPhone)}</div>` : ''}
           <span class="header-meta-info">📅 التاريخ: <strong>${formattedDate}</strong> — <strong>${formattedTime}</strong></span>
         </div>
         ${ownerName ? `
@@ -11129,6 +11130,7 @@ window.createMessageDetailsModal = createMessageDetailsModal;
     window.saveShopPhone = function() {
       const phone = document.getElementById('shopPhoneInput').value.trim();
       appDataDocRef.set({ shopPhone: phone }, { merge: true }).then(() => {
+        shopPhone = phone; // Update global variable immediately
         showTemporaryAlert("تم حفظ رقم الهاتف بنجاح", "success");
       });
     };
