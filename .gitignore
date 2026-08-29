@@ -1,0 +1,23 @@
+# ملفات Firebase الحساسة
+.env
+.env.local
+.env.production
+
+# ملفات النظام
+.DS_Store
+Thumbs.db
+
+# مجلدات Node.js (إذا كنت تستخدمها لاحقاً)
+node_modules/
+dist/
+build/
+
+# ملفات المحرر
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ملفات مؤقتة
+*.tmp
+*.temp

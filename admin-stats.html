@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>التقارير والإحصائيات - تطبيق الكتب الدراسية</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      font-family: 'Cairo', Tahoma, Arial, sans-serif;
+      background: #f7fafc;
+      color: #2d3748;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .stats-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #63b3ed 100%);
+      box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .stats-header h1 {
+      margin: 0;
+      font-size: 24px;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .stats-header .actions {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .btn {
+      background: white;
+      color: #667eea;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.3s ease;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    }
+    
+    .btn.secondary {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+      transition: transform 0.3s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-2px);
+    }
+    
+    .card h3 {
+      margin: 0 0 15px 0;
+      color: #4a5568;
+      font-size: 18px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 10px;
+    }
+    
+    .kpi {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .kpi-label {
+      font-size: 14px;
+      color: #718096;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2d3748;
+    }
+    
+    .kpi-sub {
+      font-size: 12px;
+      color: #a0aec0;
+      margin-top: 5px;
+    }
+    
+    .section {
+      margin-top: 40px;
+    }
+    
+    .section h2 {
+      font-size: 22px;
+      margin: 0 0 20px 0;
+      color: #2d3748;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .pill {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: #edf2f7;
+      color: #4a5568;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .pill.success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    
+    .pill.warning {
+      background: #fed7aa;
+      color: #7c2d12;
+    }
+    
+    .pill.error {
+      background: #feb2b2;
+      color: #742a2a;
+    }
+    
+    .pill.info {
+      background: #bee3f8;
+      color: #2a4e7c;
+    }
+    
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: #f7fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .list-item:hover {
+      background: #edf2f7;
+    }
+    
+    .mini-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 100px;
+      justify-content: center;
+    }
+    
+    .bar {
+      width: 25px;
+      background: linear-gradient(180deg, #667eea, #63b3ed);
+      border-radius: 4px 4px 0 0;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    
+    .bar:hover {
+      opacity: 0.8;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 50px;
+      font-size: 18px;
+      color: #718096;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .footer {
+      text-align: center;
+      color: #a0aec0;
+      padding: 30px;
+      font-size: 14px;
+      margin-top: 50px;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="stats-header">
+    <h1>📊 التقارير والإحصائيات</h1>
+    <div class="actions">
+      <button class="btn secondary" onclick="window.location.href='index.html'">← العودة للرئيسية</button>
+      <button class="btn" onclick="loadAllStats()">🔄 تحديث البيانات</button>
+    </div>
+  </div>
+  
+  <div id="authGuard" class="container">
+    <div class="card">
+      <div id="authStatus" class="loading">
+        ⏳ جاري التحقق من الصلاحيات...
+      </div>
+    </div>
+  </div>
+
+  <div id="statsApp" class="container hidden">
+    <!-- إحصائيات سريعة -->
+    <div class="grid">
+      <div class="card">
+        <div class="kpi">
+          <div class="kpi-label">📚 المستويات</div>
+          <div class="kpi-value" id="kpiLevels">0</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="kpi">
+          <div class="kpi-label">📖 إجمالي الكتب</div>
+          <div class="kpi-value" id="kpiBooks">0</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="kpi">
+          <div class="kpi-label">👥 المستخدمون</div>
+          <div class="kpi-value" id="kpiUsers">0</div>
+        </div>
+        <div class="kpi-sub">نشط: <span id="kpiUsersActive">0</span> | معلّق: <span id="kpiUsersPending">0</span></div>
+      </div>
+      <div class="card">
+        <div class="kpi">
+          <div class="kpi-label">📁 عمليات الأرشيف</div>
+          <div class="kpi-value" id="kpiArchive">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- المستويات والكتب -->
+    <div class="section">
+      <h2>📚 المستويات والكتب</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>عدد الكتب حسب المستوى</h3>
+          <div id="levelsList" class="list">
+            <div class="loading">جاري التحميل...</div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>جودة البيانات</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>كتب بدون صورة</div>
+              <div class="pill warning" id="booksNoImage">0</div>
+            </div>
+            <div class="list-item">
+              <div>كتب مكررة بالاسم</div>
+              <div class="pill warning" id="booksDuplicate">0</div>
+            </div>
+            <div class="list-item">
+              <div>كتب بلا مستوى محدد</div>
+              <div class="pill warning" id="booksNoLevel">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- أكثر الكتب اختياراً -->
+    <div class="section">
+      <h2>⭐ أكثر الكتب اختياراً من طرف المستخدمين</h2>
+      <div class="card">
+        <div id="topChosenBooks" class="list">
+          <div class="loading">جاري التحليل...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- المستخدمون -->
+    <div class="section">
+      <h2>👥 المستخدمون وإدارتهم</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>إحصائيات المستخدمين</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>إجمالي المستخدمين</div>
+              <div class="pill info" id="usersTotal">0</div>
+            </div>
+            <div class="list-item">
+              <div>مفعّلين</div>
+              <div class="pill success" id="usersActive">0</div>
+            </div>
+            <div class="list-item">
+              <div>في انتظار التفعيل</div>
+              <div class="pill warning" id="usersPending">0</div>
+            </div>
+            <div class="list-item">
+              <div>مدراء النظام</div>
+              <div class="pill" id="usersAdmins">0</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>التسجيلات الجديدة (آخر 7 أيام)</h3>
+          <div class="mini-chart" id="signupsChart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- الأرشيف -->
+    <div class="section">
+      <h2>📋 أرشيف العمليات</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>العمليات حسب النوع</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>إضافة</div>
+              <div class="pill success" id="archiveAdd">0</div>
+            </div>
+            <div class="list-item">
+              <div>تعديل</div>
+              <div class="pill info" id="archiveEdit">0</div>
+            </div>
+            <div class="list-item">
+              <div>حذف</div>
+              <div class="pill error" id="archiveDelete">0</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>العمليات حسب الكيان</h3>
+          <div id="archiveByEntity" class="list">
+            <div class="loading">جاري التحليل...</div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>الأكثر نشاطاً</h3>
+          <div id="topActiveUsers" class="list">
+            <div class="loading">جاري التحليل...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- نشاط تبادل الكتب -->
+    <div class="section">
+      <h2>📚 نشاط تبادل الكتب</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>إحصائيات الإعلانات</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>إعلانات مفتوحة</div>
+              <div class="pill success" id="exchangeOpen">0</div>
+            </div>
+            <div class="list-item">
+              <div>إعلانات مغلقة</div>
+              <div class="pill" id="exchangeClosed">0</div>
+            </div>
+            <div class="list-item">
+              <div>إجمالي العروض</div>
+              <div class="pill info" id="exchangeOffers">0</div>
+            </div>
+            <div class="list-item">
+              <div>إجمالي الطلبات</div>
+              <div class="pill info" id="exchangeRequests">0</div>
+            </div>
+            <div class="list-item">
+              <div>متوسط زمن الإغلاق</div>
+              <div class="pill" id="exchangeAvgCloseTime">-</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>أكثر الكتب نشاطاً في التبادل</h3>
+          <div id="topExchangeBooks" class="list">
+            <div class="loading">جاري التحليل...</div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>أكثر المستويات نشاطاً في التبادل</h3>
+          <div id="topExchangeLevels" class="list">
+            <div class="loading">جاري التحليل...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>أعلى المستخدمين مساهمة</h3>
+          <div id="topExchangeContributors" class="list">
+            <div class="loading">جاري التحليل...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- نشاط المستخدمين -->
+    <div class="section">
+      <h2>📊 نشاط المستخدمين</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>المستخدمون النشطون</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>نشطون خلال 24 ساعة</div>
+              <div class="pill success" id="activeUsers24h">0</div>
+            </div>
+            <div class="list-item">
+              <div>نشطون خلال 7 أيام</div>
+              <div class="pill info" id="activeUsers7d">0</div>
+            </div>
+            <div class="list-item">
+              <div>نشطون خلال 30 يوم</div>
+              <div class="pill" id="activeUsers30d">0</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>نسب التحويل</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>من إشعار مطابقة → مراسلة</div>
+              <div class="pill" id="conversionMatchToMessage">0%</div>
+            </div>
+            <div class="list-item">
+              <div>من مراسلة → إغلاق إعلان</div>
+              <div class="pill" id="conversionMessageToClose">0%</div>
+            </div>
+            <div class="list-item">
+              <div>معدل التحويل الكلي</div>
+              <div class="pill info" id="conversionOverall">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- الرسائل والإشعارات -->
+    <div class="section">
+      <h2>💬 الرسائل والإشعارات</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>رسائل الإدارة</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>إجمالي الرسائل المرسلة</div>
+              <div class="pill" id="adminMessagesSent">0</div>
+            </div>
+            <div class="list-item">
+              <div>نسبة القراءة خلال 24 ساعة</div>
+              <div class="pill" id="adminMessagesRead24h">0%</div>
+            </div>
+            <div class="list-item">
+              <div>معدل القراءة الإجمالي</div>
+              <div class="pill success" id="adminMessagesReadTotal">0%</div>
+            </div>
+            <div class="list-item">
+              <div>رسائل بمرفقات</div>
+              <div class="pill" id="adminMessagesWithAttach">0</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>رسائل المستخدمين للإدارة</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>رسائل واردة</div>
+              <div class="pill" id="userToAdminMessages">0</div>
+            </div>
+            <div class="list-item">
+              <div>متوسط زمن الرد</div>
+              <div class="pill" id="avgResponseTime">-</div>
+            </div>
+            <div class="list-item">
+              <div>رسائل لم يتم الرد عليها</div>
+              <div class="pill warning" id="unansweredMessages">0</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>إشعارات المطابقة</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>إشعارات مطابقة مرسلة</div>
+              <div class="pill" id="matchNotificationsSent">0</div>
+            </div>
+            <div class="list-item">
+              <div>نسبة التفاعل</div>
+              <div class="pill" id="matchNotificationEngagement">0%</div>
+            </div>
+            <div class="list-item">
+              <div>تحويل إلى مراسلة</div>
+              <div class="pill" id="matchToMessageConversion">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>الإشعارات العامة</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>إشعارات مرسلة</div>
+              <div class="pill" id="notificationsSent">0</div>
+            </div>
+            <div class="list-item">
+              <div>إشعارات مقروءة</div>
+              <div class="pill" id="notificationsRead">0</div>
+            </div>
+            <div class="list-item">
+              <div>معدل القراءة</div>
+              <div class="pill success" id="notificationReadRate">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- صحة النظام -->
+    <div class="section">
+      <h2>💾 صحة النظام والتخزين</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>استخدام التخزين</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>صور الكتب</div>
+              <div class="pill" id="storageImages">محسوب...</div>
+            </div>
+            <div class="list-item">
+              <div>مرفقات الرسائل</div>
+              <div class="pill" id="storageAttachments">محسوب...</div>
+            </div>
+            <div class="list-item">
+              <div>المجموع الكلي</div>
+              <div class="pill info" id="storageTotal">محسوب...</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>معلومات إضافية</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>عدد الصور المرفوعة</div>
+              <div class="pill" id="imagesCount">0</div>
+            </div>
+            <div class="list-item">
+              <div>عدد المرفقات</div>
+              <div class="pill" id="attachmentsCount">0</div>
+            </div>
+            <div class="list-item">
+              <div>نسبة الأخطاء</div>
+              <div class="pill success">غير متاح</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    © تطبيق الكتب الدراسية - جميع الحقوق محفوظة
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  
+  <!-- Firebase Configuration -->
+  <script src="config.js"></script>
+  
+  <!-- Stats JavaScript -->
+  <script src="admin-stats.js"></script>
+  <script src="tracking-helper.js"></script>
+</body>
+</html>
