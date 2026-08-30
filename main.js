@@ -42,24 +42,23 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
     let markedAsNo = {};
     let bookStatistics = {};
     let shopPhone = "";
-    let deletePassword = localStorage.getItem("app_delete_password") || "";
+    let deletePassword = ""; // Will be loaded from appDataDocRef
     
-    window.saveDeletePassword = function() {
+    window.saveDeletePassword = async function() {
       const pwdInput = document.getElementById('deletePasswordSetting');
       if (pwdInput) {
         deletePassword = pwdInput.value;
-        localStorage.setItem("app_delete_password", deletePassword);
-        showTemporaryAlert('تم حفظ الرقم السري للحذف بنجاح', 'success');
+        try {
+          await appDataDocRef.set({ deletePassword: deletePassword }, { merge: true });
+          showTemporaryAlert('تم حفظ الرقم السري للحذف بنجاح', 'success');
+        } catch (error) {
+          console.error("Error saving delete password:", error);
+          showTemporaryAlert("حدث خطأ أثناء حفظ الرقم السري", "error");
+        }
       }
     };
     
-    // Set initial value in UI if available
-    window.addEventListener('DOMContentLoaded', () => {
-      const pwdInput = document.getElementById('deletePasswordSetting');
-      if (pwdInput && deletePassword) {
-        pwdInput.value = deletePassword;
-      }
-    });
+
 
     let searchTerm = "";
     let userChosenBooksDocRef = null; // Reference to user's chosen books document
@@ -3370,6 +3369,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
             }
           }
           if (data.shopPhone) shopPhone = data.shopPhone;
+            if (data.deletePassword !== undefined) deletePassword = data.deletePassword;
           if (document.getElementById('shopPhoneInput')) document.getElementById('shopPhoneInput').value = shopPhone;
           
           if (data.levels && data.levels.length > 0) {
