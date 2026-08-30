@@ -34,6 +34,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
     let isAdmin = false;
 
     let levels = []; // Initialize empty - will be loaded from Firebase
+
     let chosenBooks = {}; // {level: {book: count}} - now user-specific
     let currentLevelForAddBook = null; // Store the level index when adding a book
     let currentLevelIndex = null;
@@ -41,6 +42,25 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
     let markedAsNo = {};
     let bookStatistics = {};
     let shopPhone = "";
+    let deletePassword = localStorage.getItem("app_delete_password") || "";
+    
+    window.saveDeletePassword = function() {
+      const pwdInput = document.getElementById('deletePasswordSetting');
+      if (pwdInput) {
+        deletePassword = pwdInput.value;
+        localStorage.setItem("app_delete_password", deletePassword);
+        showTemporaryAlert('تم حفظ الرقم السري للحذف بنجاح', 'success');
+      }
+    };
+    
+    // Set initial value in UI if available
+    window.addEventListener('DOMContentLoaded', () => {
+      const pwdInput = document.getElementById('deletePasswordSetting');
+      if (pwdInput && deletePassword) {
+        pwdInput.value = deletePassword;
+      }
+    });
+
     let searchTerm = "";
     let userChosenBooksDocRef = null; // Reference to user's chosen books document
     
@@ -1671,7 +1691,14 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
                      deleteBookBtn.onclick = async (e) => {
              e.stopPropagation();
              if (confirm(`هل تريد حذف الكتاب "${book}"؟`)) {
-              try {
+                if (deletePassword) {
+                  const entered = prompt("الرجاء إدخال الرقم السري للحذف:");
+                  if (entered !== deletePassword) {
+                    showTemporaryAlert('الرقم السري غير صحيح', 'error');
+                    return;
+                  }
+                }
+               try {
                 // حذف الكتاب محلياً
                levels[currentLevelIndex].books = levels[currentLevelIndex].books.filter(b => b !== book);
                if (levels[currentLevelIndex].subjects[currentSubjectIndex]) {
@@ -2857,6 +2884,13 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         
         const subjectName = levels[levelIndex].subjects[subjectIndex].name;
         if (confirm(`هل أنت متأكد من حذف المادة "${subjectName}" وجميع كتبها؟`)) {
+            if (deletePassword) {
+              const entered = prompt("الرجاء إدخال الرقم السري للحذف:");
+              if (entered !== deletePassword) {
+                showTemporaryAlert('الرقم السري غير صحيح', 'error');
+                return;
+              }
+            }
             const subjectBooks = levels[levelIndex].subjects[subjectIndex].books || [];
             
             // Backup
@@ -3107,6 +3141,13 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
 سيؤدي ذلك إلى:
 - حذف جميع الكتب في هذا المستوى
 - إزالة المستوى من قوائم جميع المستخدمين`)) {
+        if (deletePassword) {
+          const entered = prompt("الرجاء إدخال الرقم السري للحذف:");
+          if (entered !== deletePassword) {
+            showTemporaryAlert('الرقم السري غير صحيح', 'error');
+            return;
+          }
+        }
         try {
           // حفظ نسخة احتياطية
           const oldLevels = [...levels];

@@ -411,6 +411,16 @@
     <div class="modal-content settings-modal-content" id="levelsSettingsModalContent">
       <span class="close-btn" onclick="closeLevelsSettingsModal()">&times;</span>
       <h3 style="color:#667eea; text-align: center;">إعدادات المستويات الدراسية</h3>
+      
+      <!-- Password setting for deletion -->
+      <div style="margin-bottom: 20px; text-align: center; background: #f7fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <label for="deletePasswordSetting" style="display: block; margin-bottom: 10px; font-weight: bold; color: #4a5568;">الرقم السري لحذف الكتب والمواد:</label>
+        <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+          <input type="password" id="deletePasswordSetting" placeholder="اترك فارغاً لعدم استخدام رقم سري" style="padding: 8px; border: 1px solid #cbd5e0; border-radius: 5px; text-align: center; font-family: inherit; width: 60%;">
+          <button onclick="saveDeletePassword()" style="background: #4299e1; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-family: inherit;">حفظ</button>
+        </div>
+      </div>
+
       <div id="levelsSettingsList"></div>
       <button class="add-level-btn" id="addLevelSettingsBtn">➕ إضافة مستوى دراسي</button>
       
