@@ -125,12 +125,81 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       let totalBookTitlesCount = 0;
       let totalCopiesCount = 0;
 
-      // أولاً: المستويات الحالية بالترتيب
-      if (Array.isArray(levels)) {
-        levels.forEach(level => {
-          const levelName = level.name;
-          if (chosenBooksData[levelName]) {
-            const booksObj = chosenBooksData[levelName];
+      if (options.flatAlphabetical) {
+        let allBooksMap = {};
+        for (const levelName in chosenBooksData) {
+          const booksObj = chosenBooksData[levelName];
+          if (booksObj && typeof booksObj === 'object') {
+            for (const title in booksObj) {
+              const formattedTitle = `${title} - ${levelName}`;
+              allBooksMap[formattedTitle] = (allBooksMap[formattedTitle] || 0) + (Number(booksObj[title]) || 1);
+            }
+          }
+        }
+        
+        const bookTitles = Object.keys(allBooksMap);
+        if (bookTitles.length > 0) {
+          const sortedBooks = bookTitles
+            .sort((a, b) => a.localeCompare(b, 'ar'))
+            .map(title => ({
+              title: title,
+              count: allBooksMap[title]
+            }));
+            
+          const totalCopies = sortedBooks.reduce((sum, b) => sum + b.count, 0);
+          
+          structuredLevels.push({
+            name: "جميع الكتب (مرتبة أبجدياً)",
+            books: sortedBooks,
+            titlesCount: sortedBooks.length,
+            totalCopies: totalCopies,
+            isTwoColumn: true
+          });
+          
+          totalBookTitlesCount += sortedBooks.length;
+          totalCopiesCount += totalCopies;
+        }
+      } else {
+        // أولاً: المستويات الحالية بالترتيب
+        if (Array.isArray(levels)) {
+          levels.forEach(level => {
+            const levelName = level.name;
+            if (chosenBooksData[levelName]) {
+              const booksObj = chosenBooksData[levelName];
+              const bookTitles = Object.keys(booksObj);
+              if (bookTitles.length > 0) {
+                const sortedBooks = bookTitles
+                  .sort((a, b) => a.localeCompare(b, 'ar'))
+                  .map(title => ({
+                    title: title,
+                    count: Number(booksObj[title]) || 1
+                  }));
+                
+                const levelTotalCopies = sortedBooks.reduce((sum, b) => sum + b.count, 0);
+                
+                structuredLevels.push({
+                  name: levelName,
+                  books: sortedBooks,
+                  titlesCount: sortedBooks.length,
+                  totalCopies: levelTotalCopies
+                });
+
+                totalBookTitlesCount += sortedBooks.length;
+                totalCopiesCount += levelTotalCopies;
+              }
+            }
+          });
+        }
+
+        // ثانياً: أي مستويات أخرى موجودة في البيانات وغير موجودة في levels
+        const existingLevelNames = new Set(structuredLevels.map(l => l.name));
+        const remainingLevelNames = Object.keys(chosenBooksData)
+          .filter(name => !existingLevelNames.has(name))
+          .sort((a, b) => a.localeCompare(b, 'ar'));
+
+        remainingLevelNames.forEach(levelName => {
+          const booksObj = chosenBooksData[levelName];
+          if (booksObj && typeof booksObj === 'object') {
             const bookTitles = Object.keys(booksObj);
             if (bookTitles.length > 0) {
               const sortedBooks = bookTitles
@@ -141,7 +210,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
                 }));
               
               const levelTotalCopies = sortedBooks.reduce((sum, b) => sum + b.count, 0);
-              
+
               structuredLevels.push({
                 name: levelName,
                 books: sortedBooks,
@@ -155,39 +224,6 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
           }
         });
       }
-
-      // ثانياً: أي مستويات أخرى موجودة في البيانات وغير موجودة في levels
-      const existingLevelNames = new Set(structuredLevels.map(l => l.name));
-      const remainingLevelNames = Object.keys(chosenBooksData)
-        .filter(name => !existingLevelNames.has(name))
-        .sort((a, b) => a.localeCompare(b, 'ar'));
-
-      remainingLevelNames.forEach(levelName => {
-        const booksObj = chosenBooksData[levelName];
-        if (booksObj && typeof booksObj === 'object') {
-          const bookTitles = Object.keys(booksObj);
-          if (bookTitles.length > 0) {
-            const sortedBooks = bookTitles
-              .sort((a, b) => a.localeCompare(b, 'ar'))
-              .map(title => ({
-                title: title,
-                count: Number(booksObj[title]) || 1
-              }));
-            
-            const levelTotalCopies = sortedBooks.reduce((sum, b) => sum + b.count, 0);
-
-            structuredLevels.push({
-              name: levelName,
-              books: sortedBooks,
-              titlesCount: sortedBooks.length,
-              totalCopies: levelTotalCopies
-            });
-
-            totalBookTitlesCount += sortedBooks.length;
-            totalCopiesCount += levelTotalCopies;
-          }
-        }
-      });
 
       totalLevelsCount = structuredLevels.length;
 
@@ -203,7 +239,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
 
       // بناء بطاقات المستويات بتصميم مضغوط مع خانة check
       const levelsCardsHTML = structuredLevels.map(lvl => `
-        <div class="level-card">
+        <div class="level-card" ${lvl.isTwoColumn ? 'style="grid-column: 1 / -1;"' : ''}>
           <div class="level-header">
             <div class="level-title-group">
               <span class="level-bullet">📚</span>
@@ -218,21 +254,52 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
             <table class="level-books-table">
               <thead>
                 <tr>
-                  <th style="width: 22px; text-align: center;">#</th>
                   <th style="text-align: right;">اسم الكتاب / المقرر</th>
                   <th style="width: 44px; text-align: center;">العدد</th>
                   <th style="width: 28px; text-align: center;">✔</th>
+                  ${lvl.isTwoColumn ? `
+                  <th style="text-align: right; border-right: 2px solid var(--border-color);">اسم الكتاب / المقرر</th>
+                  <th style="width: 44px; text-align: center;">العدد</th>
+                  <th style="width: 28px; text-align: center;">✔</th>
+                  ` : ''}
                 </tr>
               </thead>
               <tbody>
-                ${lvl.books.map((b, idx) => `
-                  <tr>
-                    <td class="col-index">${idx + 1}</td>
-                    <td class="col-title">${escapeHTML(b.title)}</td>
-                    <td class="col-count"><span class="count-pill">${b.count}</span></td>
-                    <td class="col-check"><span class="check-box"></span></td>
-                  </tr>
-                `).join('')}
+                ${(function() {
+                  if (lvl.isTwoColumn) {
+                    let rowsHTML = '';
+                    const half = Math.ceil(lvl.books.length / 2);
+                    for (let i = 0; i < half; i++) {
+                      const b1 = lvl.books[i];
+                      const b2 = lvl.books[i + half];
+                      rowsHTML += `
+                        <tr>
+                          <td class="col-title">${escapeHTML(b1.title)}</td>
+                          <td class="col-count"><span class="count-pill">${b1.count}</span></td>
+                          <td class="col-check"><span class="check-box"></span></td>
+                          ${b2 ? `
+                          <td class="col-title" style="border-right: 2px solid var(--border-color);">${escapeHTML(b2.title)}</td>
+                          <td class="col-count"><span class="count-pill">${b2.count}</span></td>
+                          <td class="col-check"><span class="check-box"></span></td>
+                          ` : `
+                          <td class="col-title" style="border-right: 2px solid var(--border-color);"></td>
+                          <td class="col-count"></td>
+                          <td class="col-check"></td>
+                          `}
+                        </tr>
+                      `;
+                    }
+                    return rowsHTML;
+                  } else {
+                    return lvl.books.map((b, idx) => `
+                      <tr>
+                        <td class="col-title">${escapeHTML(b.title)}</td>
+                        <td class="col-count"><span class="count-pill">${b.count}</span></td>
+                        <td class="col-check"><span class="check-box"></span></td>
+                      </tr>
+                    `).join('');
+                  }
+                })()}
               </tbody>
             </table>
           </div>
@@ -490,12 +557,13 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       color: #475569;
       font-weight: 700;
       padding: 3px 5px;
+      border: 1px solid var(--border-color);
       border-bottom: 1.5px solid #cbd5e1;
       font-size: 10px;
     }
     .level-books-table td {
       padding: 3px 5px;
-      border-bottom: 1px solid #f1f5f9;
+      border: 1px solid var(--border-color);
       vertical-align: middle;
     }
     .level-books-table tbody tr:nth-child(even) td {
@@ -505,12 +573,6 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       border-bottom: none;
     }
 
-    .col-index {
-      text-align: center;
-      color: #94a3b8;
-      font-weight: 700;
-      font-size: 10px;
-    }
     .col-title {
       color: #1e293b;
       font-weight: 600;
@@ -606,6 +668,15 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         box-shadow: none !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+      }
+      .level-books-table th {
+        padding: 2px 4px !important;
+        font-size: 9.5px !important;
+        border: 1px solid #94a3b8 !important;
+      }
+      .level-books-table td {
+        padding: 2.5px 4px !important;
+        border: 1px solid #94a3b8 !important;
       }
       .level-header {
         background: #1e293b !important;
@@ -3205,6 +3276,25 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       renderChosenBooksPDFWindow(chosenBooks, {
         title: 'لائحة الكتب المدرسية المختارة',
         isArchive: false
+      });
+    }
+
+    function exportPDFAlphabetical() {
+      if (!chosenBooks || typeof chosenBooks !== 'object' || Object.keys(chosenBooks).length === 0) {
+        showTemporaryAlert('لا توجد كتب مختارة لتصديرها', 'warning');
+        return;
+      }
+
+      const hasBooks = Object.values(chosenBooks).some(books => books && typeof books === 'object' && Object.keys(books).length > 0);
+      if (!hasBooks) {
+        showTemporaryAlert('لا توجد كتب مختارة لتصديرها', 'warning');
+        return;
+      }
+
+      renderChosenBooksPDFWindow(chosenBooks, {
+        title: 'لائحة الكتب المدرسية المختارة (مرتبة أبجديا)',
+        isArchive: false,
+        flatAlphabetical: true
       });
     }
 
