@@ -116,201 +116,85 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       }
 
       const pageTitle = options.title || 'لائحة الكتب المدرسية المختارة';
-      const isArchive = !!options.isArchive;
       const ownerName = (currentUser && (currentUser.name || currentUser.displayName || currentUser.email)) || options.ownerName || '';
+      const showPrices = !!options.showPrices;
 
-      // 1. استخراج المستويات بالترتيب المعتمد وحساب الإحصائيات
-      const structuredLevels = [];
-      let totalLevelsCount = 0;
-      let totalBookTitlesCount = 0;
+      let grandTotalPrice = 0;
       let totalCopiesCount = 0;
+      let totalBookTitlesCount = 0;
 
-      if (options.flatAlphabetical) {
-        let allBooksMap = {};
-        for (const levelName in chosenBooksData) {
-          const booksObj = chosenBooksData[levelName];
-          if (booksObj && typeof booksObj === 'object') {
-            for (const title in booksObj) {
-              const formattedTitle = `${title} - ${levelName}`;
-              allBooksMap[formattedTitle] = (allBooksMap[formattedTitle] || 0) + (Number(booksObj[title]) || 1);
-            }
-          }
-        }
-        
-        const bookTitles = Object.keys(allBooksMap);
-        if (bookTitles.length > 0) {
-          const sortedBooks = bookTitles
-            .sort((a, b) => a.localeCompare(b, 'ar'))
-            .map(title => ({
-              title: title,
-              count: allBooksMap[title]
-            }));
-            
-          const totalCopies = sortedBooks.reduce((sum, b) => sum + b.count, 0);
-          
-          structuredLevels.push({
-            name: "جميع الكتب (مرتبة أبجدياً)",
-            books: sortedBooks,
-            titlesCount: sortedBooks.length,
-            totalCopies: totalCopies,
-            isTwoColumn: true
-          });
-          
-          totalBookTitlesCount += sortedBooks.length;
-          totalCopiesCount += totalCopies;
-        }
-      } else {
-        // أولاً: المستويات الحالية بالترتيب
-        if (Array.isArray(levels)) {
-          levels.forEach(level => {
-            const levelName = level.name;
-            if (chosenBooksData[levelName]) {
-              const booksObj = chosenBooksData[levelName];
-              const bookTitles = Object.keys(booksObj);
-              if (bookTitles.length > 0) {
-                const sortedBooks = bookTitles
-                  .sort((a, b) => a.localeCompare(b, 'ar'))
-                  .map(title => ({
-                    title: title,
-                    count: Number(booksObj[title]) || 1
-                  }));
-                
-                const levelTotalCopies = sortedBooks.reduce((sum, b) => sum + b.count, 0);
-                
-                structuredLevels.push({
-                  name: levelName,
-                  books: sortedBooks,
-                  titlesCount: sortedBooks.length,
-                  totalCopies: levelTotalCopies
-                });
-
-                totalBookTitlesCount += sortedBooks.length;
-                totalCopiesCount += levelTotalCopies;
-              }
-            }
-          });
-        }
-
-        // ثانياً: أي مستويات أخرى موجودة في البيانات وغير موجودة في levels
-        const existingLevelNames = new Set(structuredLevels.map(l => l.name));
-        const remainingLevelNames = Object.keys(chosenBooksData)
-          .filter(name => !existingLevelNames.has(name))
-          .sort((a, b) => a.localeCompare(b, 'ar'));
-
-        remainingLevelNames.forEach(levelName => {
-          const booksObj = chosenBooksData[levelName];
-          if (booksObj && typeof booksObj === 'object') {
-            const bookTitles = Object.keys(booksObj);
-            if (bookTitles.length > 0) {
-              const sortedBooks = bookTitles
-                .sort((a, b) => a.localeCompare(b, 'ar'))
-                .map(title => ({
-                  title: title,
-                  count: Number(booksObj[title]) || 1
-                }));
-              
-              const levelTotalCopies = sortedBooks.reduce((sum, b) => sum + b.count, 0);
-
-              structuredLevels.push({
-                name: levelName,
-                books: sortedBooks,
-                titlesCount: sortedBooks.length,
-                totalCopies: levelTotalCopies
-              });
-
-              totalBookTitlesCount += sortedBooks.length;
-              totalCopiesCount += levelTotalCopies;
-            }
-          }
-        });
+      function getBookPrice(title, levelName) {
+         const lvl = levels.find(l => l.name === levelName);
+         if (lvl && lvl.booksPrices && lvl.booksPrices[title]) {
+             return parseFloat(lvl.booksPrices[title]);
+         }
+         return 0;
       }
 
-      totalLevelsCount = structuredLevels.length;
+      // Generate a simple 1-dimensional table
+      let theadHTML = `
+        <tr>
+          <th style="text-align: right;">اسم الكتاب (المستوى)</th>
+          <th style="width: 40px; text-align: center;">العدد</th>
+          ${showPrices ? '<th style="width: 60px; text-align: center;">الثمن</th>' : ''}
+          <th style="width: 25px; text-align: center;">✔</th>
+        </tr>
+      `;
 
-      if (totalLevelsCount === 0 || totalBookTitlesCount === 0) {
+      let tbodyHTML = '';
+      
+      // Iterate over global levels array to maintain user's order (smallest to largest)
+      let isFirstLevel = true;
+      levels.forEach(levelObj => {
+         const levelName = levelObj.name;
+         if (chosenBooksData[levelName]) {
+             const booksObj = chosenBooksData[levelName];
+             const bookTitles = Object.keys(booksObj);
+             if (bookTitles.length > 0) {
+                 if (!isFirstLevel) {
+                     // Add a small gap between levels (spans the 3 or 4 columns)
+                     tbodyHTML += `<tr class="level-spacer"><td colspan="${showPrices ? 4 : 3}"></td></tr>`;
+                 }
+                 isFirstLevel = false;
+
+                 // Sort books in this level alphabetically
+                 const levelSortedBooks = bookTitles
+                     .sort((a, b) => a.localeCompare(b, 'ar'))
+                     .map(title => {
+                         const count = Number(booksObj[title]) || 1;
+                         const price = getBookPrice(title, levelName);
+                         const formattedTitle = title + ' (' + levelName + ')';
+                         
+                         grandTotalPrice += (price * count);
+                         totalCopiesCount += count;
+                         totalBookTitlesCount++;
+                         
+                         return { formattedTitle, count, price };
+                     });
+
+                 // ALWAYS render one book per row
+                 levelSortedBooks.forEach(b => {
+                     tbodyHTML += `
+                       <tr>
+                         <td class="col-title">${escapeHTML(b.formattedTitle)}</td>
+                         <td class="col-count"><span class="count-pill">${b.count}</span></td>
+                         ${showPrices ? `<td style="text-align: center;">${b.price > 0 ? b.price + ' درهم' : '-'}</td>` : ''}
+                         <td class="col-check"><span class="check-box"></span></td>
+                       </tr>
+                     `;
+                 });
+             }
+         }
+      });
+
+      if (totalBookTitlesCount === 0) {
         showTemporaryAlert('لا توجد كتب مختارة لتصديرها', 'warning');
         return;
       }
 
-      // التاريخ والوقت بأرقام واضحة
       const now = new Date();
-      const formattedDate = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
-      const formattedTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-      // بناء بطاقات المستويات بتصميم مضغوط مع خانة check
-      const levelsCardsHTML = structuredLevels.map(lvl => `
-        <div class="level-card" ${lvl.isTwoColumn ? 'style="grid-column: 1 / -1;"' : ''}>
-          <div class="level-header">
-            <div class="level-title-group">
-              <span class="level-bullet">📚</span>
-              <h3 class="level-name">${escapeHTML(lvl.name)}</h3>
-            </div>
-            <div class="level-stats-badges">
-              <span class="badge badge-titles">${lvl.titlesCount} كتاب</span>
-              <span class="badge badge-copies">${lvl.totalCopies} نسخة</span>
-            </div>
-          </div>
-          <div class="level-table-container">
-            <table class="level-books-table">
-              <thead>
-                <tr>
-                  <th style="text-align: right;">اسم الكتاب / المقرر</th>
-                  <th style="width: 44px; text-align: center;">العدد</th>
-                  <th style="width: 28px; text-align: center;">✔</th>
-                  ${lvl.isTwoColumn ? `
-                  <th style="text-align: right; border-right: 2px solid var(--border-color);">اسم الكتاب / المقرر</th>
-                  <th style="width: 44px; text-align: center;">العدد</th>
-                  <th style="width: 28px; text-align: center;">✔</th>
-                  ` : ''}
-                </tr>
-              </thead>
-              <tbody>
-                ${(function() {
-                  if (lvl.isTwoColumn) {
-                    let rowsHTML = '';
-                    const half = Math.ceil(lvl.books.length / 2);
-                    for (let i = 0; i < half; i++) {
-                      const b1 = lvl.books[i];
-                      const b2 = lvl.books[i + half];
-                      rowsHTML += `
-                        <tr>
-                          <td class="col-title">${escapeHTML(b1.title)}</td>
-                          <td class="col-count"><span class="count-pill">${b1.count}</span></td>
-                          <td class="col-check"><span class="check-box"></span></td>
-                          ${b2 ? `
-                          <td class="col-title" style="border-right: 2px solid var(--border-color);">${escapeHTML(b2.title)}</td>
-                          <td class="col-count"><span class="count-pill">${b2.count}</span></td>
-                          <td class="col-check"><span class="check-box"></span></td>
-                          ` : `
-                          <td class="col-title" style="border-right: 2px solid var(--border-color);"></td>
-                          <td class="col-count"></td>
-                          <td class="col-check"></td>
-                          `}
-                        </tr>
-                      `;
-                    }
-                    return rowsHTML;
-                  } else {
-                    return lvl.books.map((b, idx) => `
-                      <tr>
-                        <td class="col-title">${escapeHTML(b.title)}</td>
-                        <td class="col-count"><span class="count-pill">${b.count}</span></td>
-                        <td class="col-check"><span class="check-box"></span></td>
-                      </tr>
-                    `).join('');
-                  }
-                })()}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `).join('');
-
-      const win = window.open('', '', 'width=980,height=750');
-      if (!win) {
-        showTemporaryAlert('يرجى السماح بالنوافذ المنبثقة (Popups) لتصدير ملف PDF', 'error');
-        return;
-      }
+      const formattedDate = now.getFullYear() + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/' + String(now.getDate()).padStart(2, '0');
+      const formattedTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
 
       const htmlContent = `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -319,474 +203,96 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
   <title>${escapeHTML(pageTitle)}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #4338ca;
-      --primary-light: #eef2ff;
-      --primary-dark: #1e1b4b;
-      --secondary: #0284c7;
       --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border-color: #cbd5e1;
-      --card-border: #cbd5e1;
-      --bg-page: #f8fafc;
-      --bg-card: #ffffff;
-      --row-alt: #f8fafc;
+      --border-color: #000;
+      --bg-page: #fff;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; background-color: var(--bg-page); color: var(--text-main); font-size: 11px; }
+    .print-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 5px; margin-bottom: 5px; border-bottom: 2px solid #000; }
+    .print-title { font-size: 16px; font-weight: 700; margin: 0; }
+    .print-meta { font-size: 10px; display: flex; gap: 10px; }
+    
+    .table-wrapper {
+      ${!showPrices ? 'column-count: 2; column-gap: 15px;' : ''}
     }
-
-    body {
-      font-family: 'Cairo', Tahoma, Arial, sans-serif;
-      direction: rtl;
-      text-align: right;
-      background-color: var(--bg-page);
-      color: var(--text-main);
-      font-size: 11.5px;
-      line-height: 1.35;
-      padding: 12px 16px;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    /* شريط المعاينة والتحكم العلوي */
-    .preview-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #ffffff;
-      padding: 8px 16px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      border: 1px solid var(--border-color);
-    }
-    .preview-toolbar-title {
-      font-weight: 700;
-      font-size: 1em;
-      color: var(--primary);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .toolbar-actions {
-      display: flex;
-      gap: 8px;
-    }
-    .btn-action {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 700;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .btn-print {
-      background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-      color: #ffffff;
-      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.35);
-    }
-    .btn-print:hover {
-      background: linear-gradient(135deg, #4338ca 0%, #312e81 100%);
-      transform: translateY(-1px);
-    }
-    .btn-close {
-      background: #f1f5f9;
-      color: #475569;
-      border: 1px solid #cbd5e1;
-    }
-    .btn-close:hover {
-      background: #e2e8f0;
-    }
-
-    /* حاوية المستند */
-    .document-wrapper {
-      max-width: 1000px;
-      margin: 0 auto;
-      background: #ffffff;
-      padding: 14px 18px;
-      border-radius: 10px;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
-    }
-
-    /* الترويسة الرئيسية */
-    .doc-header {
-      border-bottom: 1.5px solid #cbd5e1;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
-    }
-    .header-main-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .header-title-box {
-      display: flex;
-      align-items: baseline;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .header-title-box h1 {
-      font-size: 16.5px;
-      font-weight: 800;
-      color: var(--primary-dark);
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .archive-tag {
-      font-size: 10px;
-      background: #fee2e2;
-      color: #b91c1c;
-      padding: 1px 6px;
-      border-radius: 4px;
-      font-weight: 700;
-      border: 1px solid #fca5a5;
-    }
-    .header-meta-info {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .owner-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-weight: 700;
-      color: #334155;
-      font-size: 11.5px;
-    }
-
-    /* شبكة بطاقات المستويات */
-    .levels-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    @media (max-width: 768px) {
-      .levels-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* بطاقة المستوى الواحد */
-    .level-card {
-      background: #ffffff;
-      border: 1px solid var(--card-border);
-      border-radius: 6px;
-      overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-      page-break-inside: avoid;
-      break-inside: avoid;
-      display: flex;
-      flex-direction: column;
-    }
-    .level-header {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-      color: #ffffff;
-      padding: 5px 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .level-title-group {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .level-bullet {
-      font-size: 12px;
-    }
-    .level-name {
-      font-size: 12px;
-      font-weight: 700;
-      color: #ffffff;
-      margin: 0;
-    }
-    .level-stats-badges {
-      display: flex;
-      gap: 4px;
-    }
-    .badge {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 1px 6px;
-      border-radius: 12px;
-      display: inline-block;
-    }
-    .badge-titles {
-      background: rgba(255, 255, 255, 0.18);
-      color: #f8fafc;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-    }
-    .badge-copies {
-      background: #0284c7;
-      color: #ffffff;
-    }
-
-    /* جدول الكتب */
-    .level-table-container {
-      flex: 1;
-      background: #ffffff;
-    }
-    .level-books-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 11px;
-    }
-    .level-books-table thead tr {
-      background: #f1f5f9;
-    }
-    .level-books-table th {
-      color: #475569;
-      font-weight: 700;
-      padding: 3px 5px;
-      border: 1px solid var(--border-color);
-      border-bottom: 1.5px solid #cbd5e1;
-      font-size: 10px;
-    }
-    .level-books-table td {
-      padding: 3px 5px;
-      border: 1px solid var(--border-color);
-      vertical-align: middle;
-    }
-    .level-books-table tbody tr:nth-child(even) td {
-      background-color: var(--row-alt);
-    }
-    .level-books-table tbody tr:last-child td {
-      border-bottom: none;
-    }
-
-    .col-title {
-      color: #1e293b;
-      font-weight: 600;
-      word-break: break-word;
-    }
-    .col-count {
-      text-align: center;
-    }
-    .count-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: #eef2ff;
-      color: #4338ca;
-      font-weight: 800;
-      font-size: 11px;
-      min-width: 22px;
-      height: 18px;
-      padding: 0 4px;
-      border-radius: 4px;
-      border: 1px solid #c7d2fe;
-    }
-    .col-check {
-      text-align: center;
-    }
-    .check-box {
-      display: inline-block;
-      width: 13px;
-      height: 13px;
-      border: 1.5px solid #64748b;
-      border-radius: 3px;
-      background: #ffffff;
-      vertical-align: middle;
-    }
-
-    /* تذييل التقرير */
-    .doc-footer {
-      background: #f8fafc;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 6px 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      page-break-inside: avoid;
-      break-inside: avoid;
-      margin-top: 4px;
-    }
-    .footer-summary {
-      font-weight: 700;
-      color: #334155;
-      font-size: 11.5px;
-      display: flex;
-      gap: 16px;
-    }
-    .footer-summary span {
-      color: var(--primary-dark);
-      font-weight: 800;
-    }
-    .footer-watermark {
-      font-size: 10px;
-      color: #94a3b8;
-    }
-
-    /* تنسيقات الطباعة A4 الموفرة للورق والمضغوطة */
+    
+    .compact-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    .compact-table th, .compact-table td { border: 1px solid #000; padding: 3px 4px; vertical-align: middle; }
+    .compact-table th { background-color: #f1f5f9; font-weight: 700; font-size: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .compact-table tr { break-inside: avoid; page-break-inside: avoid; }
+    
+    .col-title { font-weight: 600; font-size: 11px; }
+    .col-count { text-align: center; }
+    .col-check { text-align: center; }
+    .count-pill { font-weight: 700; font-size: 11px; }
+    .check-box { display: inline-block; width: 12px; height: 12px; border: 1px solid #000; }
+    .level-spacer td { border-left: none; border-right: none; height: 6px; background-color: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    
     @media print {
-      @page {
-        size: A4 portrait;
-        margin: 5mm 5mm 6mm 5mm;
-      }
-      body {
-        background: #ffffff !important;
-        padding: 0 !important;
-        font-size: 10.5px !important;
-      }
-      .preview-toolbar {
-        display: none !important;
-      }
-      .document-wrapper {
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        max-width: 100% !important;
-      }
-      .levels-grid {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr !important;
-        gap: 6px !important;
-        margin-bottom: 6px !important;
-      }
-      .level-card {
-        border: 1px solid #94a3b8 !important;
-        box-shadow: none !important;
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-      }
-      .level-books-table th {
-        padding: 2px 4px !important;
-        font-size: 9.5px !important;
-        border: 1px solid #94a3b8 !important;
-      }
-      .level-books-table td {
-        padding: 2.5px 4px !important;
-        border: 1px solid #94a3b8 !important;
-      }
-      .level-header {
-        background: #1e293b !important;
-        color: #ffffff !important;
-        padding: 3px 6px !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      .level-books-table th {
-        padding: 2px 4px !important;
-        font-size: 9.5px !important;
-      }
-      .level-books-table td {
-        padding: 2.5px 4px !important;
-      }
-      .badge-copies {
-        background: #0284c7 !important;
-        color: #ffffff !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      .count-pill {
-        background: #e0e7ff !important;
-        color: #312e81 !important;
-        border: 1px solid #a5b4fc !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      .check-box {
-        border: 1.5px solid #334155 !important;
-        background: #ffffff !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      .doc-footer {
-        border: 1px solid #94a3b8 !important;
-        padding: 4px 8px !important;
-      }
+      @page { margin: 5mm; }
+      body { font-size: 10px; }
+      .print-header { margin-bottom: 4px; padding-bottom: 2px; }
+      .print-title { font-size: 14px; }
+      .compact-table th { padding: 2px 3px; font-size: 9px; line-height: 1; }
+      .compact-table td { padding: 1px 3px; font-size: 10px; line-height: 1; }
+      .col-title { font-size: 10px; }
+      .count-pill { font-size: 10px; }
+      .check-box { width: 10px; height: 10px; }
+      .level-spacer td { height: 4px; }
     }
   </style>
 </head>
 <body>
-  <div class="preview-toolbar">
-    <div class="preview-toolbar-title">
-      <span>📄 معاينة طباعة لائحة الكتب</span>
-    </div>
-    <div class="toolbar-actions">
-      <button class="btn-action btn-print" onclick="window.print()">
-        <span>🖨️ طباعة / حفظ بتنسيق PDF</span>
-      </button>
-      <button class="btn-action btn-close" onclick="window.close()">
-        <span>✖️ إغلاق</span>
-      </button>
+  <div class="print-header">
+    <h1 class="print-title">${escapeHTML(pageTitle)}</h1>
+    <div class="print-meta">
+      <span>📚 ${totalBookTitlesCount} كتاب</span>
+      <span>📦 ${totalCopiesCount} نسخة</span>
+      ${ownerName ? `<span>👤 ${escapeHTML(ownerName)}</span>` : ''}
+      <span>📅 ${formattedDate}</span>
     </div>
   </div>
 
-  <div class="document-wrapper">
-    <div class="doc-header">
-      <div class="header-main-row">
-        <div class="header-title-box">
-          <h1>
-            <span>📚</span>
-            <span>${escapeHTML(pageTitle)}</span>
-            ${isArchive ? '<span class="archive-tag">من الأرشيف</span>' : ''}
-          </h1>
-          ${shopPhone ? `<div style="font-size: 1.2rem; color: #4a5568; margin-top: 5px; margin-bottom: 5px;">📞 ${escapeHTML(shopPhone)}</div>` : ''}
-          <span class="header-meta-info">📅 التاريخ: <strong>${formattedDate}</strong> — <strong>${formattedTime}</strong></span>
-        </div>
-        ${ownerName ? `
-          <div class="owner-badge">
-            <span>👤</span>
-            <span>المستخدم: <strong>${escapeHTML(ownerName)}</strong></span>
-          </div>
-        ` : ''}
-      </div>
-    </div>
-
-    <div class="levels-grid">
-      ${levelsCardsHTML}
-    </div>
-
-    <div class="doc-footer">
-      <div class="footer-summary">
-        <div>🏷️ إجمالي المستويات: <span>${totalLevelsCount}</span></div>
-        <div>📖 عناوين الكتب: <span>${totalBookTitlesCount} كتاب</span></div>
-        <div>📦 مجموع النسخ المطلوبة: <span>${totalCopiesCount} نسخة</span></div>
-      </div>
-      <div class="footer-watermark">
-        <span>تطبيق لائحة الكتب المدرسية</span>
-      </div>
-    </div>
+  <div class="table-wrapper">
+    <table class="compact-table">
+      <thead>${theadHTML}</thead>
+      <tbody>${tbodyHTML}</tbody>
+    </table>
   </div>
 
   <script>
-    // تشغيل نافذة الطباعة تلقائياً بعد اكتمال التحميل
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        window.print();
-      }, 400);
-    });
-  <\/script>
+    window.onload = function() {
+      setTimeout(() => { window.print(); }, 500);
+    };
+  </script>
 </body>
 </html>`;
 
-      win.document.open();
-      win.document.write(htmlContent);
-      win.document.close();
+      const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const printWin = window.open(url, '_blank');
+      if (printWin) {
+        printWin.onload = function() {
+          setTimeout(function() { printWin.print(); }, 600);
+          setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+        };
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+      }
     }
 
-    // تصدير PDF من عملية أرشيف لمسح جميع الكتب المختارة
+
     async function exportArchivedChosenBooksPDF(operationId) {
       try {
         const doc = await operationsArchiveCollection.doc(operationId).get();
@@ -1629,9 +1135,17 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0;">
             <h4 style="margin: 0; color: #2d3748;">📚 ${escapeHTML(subject.name)}</h4>
             ${hasEditPermission ? `
-              <button class="add-book-btn" onclick="addBookToSubject(currentLevelIndex, currentSubjectIndex)" style="margin: 0; padding: 6px 12px; font-size: 14px;">
-                ➕ إضافة كتاب
-              </button>
+              <div style="display: flex; gap: 5px;">
+                  <button onclick="editSubject(currentLevelIndex, currentSubjectIndex)" style="margin: 0; padding: 6px 10px; font-size: 12px; background: #f6e05e; color: #744210; border: none; border-radius: 5px; cursor: pointer; font-family: 'Cairo', sans-serif;">
+                    ✏️ تعديل المادة
+                  </button>
+                  <button onclick="deleteSubject(currentLevelIndex, currentSubjectIndex)" style="margin: 0; padding: 6px 10px; font-size: 12px; background: #fc8181; color: #742a2a; border: none; border-radius: 5px; cursor: pointer; font-family: 'Cairo', sans-serif;">
+                    🗑️ حذف المادة
+                  </button>
+                  <button class="add-book-btn" onclick="addBookToSubject(currentLevelIndex, currentSubjectIndex)" style="margin: 0; padding: 6px 12px; font-size: 14px;">
+                    ➕ إضافة كتاب
+                  </button>
+              </div>
             ` : ''}
           </div>
           <input class="search-input" id="searchBookInput" placeholder="ابحث عن كتاب في ${escapeHTML(subject.name)}..." oninput="searchBooks()" style="margin-bottom: 15px;" />
@@ -1683,11 +1197,64 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         // إنشاء حاوي العنوان
         const titleContainer = document.createElement('div');
         titleContainer.className = 'book-title-container';
+        titleContainer.style.display = 'flex';
+        titleContainer.style.alignItems = 'center';
+        titleContainer.style.gap = '10px';
+        titleContainer.style.flex = '1';
         
         const titleSpan = document.createElement('span');
         titleSpan.className = 'book-title';
         titleSpan.textContent = book;
         titleContainer.appendChild(titleSpan);
+        
+        // Price Input
+        const hasEditPermission = isAdmin || (currentUser && currentUser.canEditContent);
+        const priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.step = '0.01';
+        priceInput.placeholder = 'الثمن (درهم)';
+        priceInput.className = 'book-price-inline-input';
+        priceInput.style = 'width: 90px; padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.85em; text-align: center;';
+        
+        let currentPrice = '';
+        if (levels[currentLevelIndex].booksPrices && levels[currentLevelIndex].booksPrices[book]) {
+            currentPrice = levels[currentLevelIndex].booksPrices[book];
+        }
+        priceInput.value = currentPrice;
+        
+        // Handle input click and change
+        priceInput.onclick = (e) => e.stopPropagation();
+        
+        if (hasEditPermission) {
+            priceInput.onchange = async (e) => {
+                e.stopPropagation();
+                const newPrice = parseFloat(e.target.value);
+                if (!levels[currentLevelIndex].booksPrices) levels[currentLevelIndex].booksPrices = {};
+                
+                if (!isNaN(newPrice) && newPrice > 0) {
+                    levels[currentLevelIndex].booksPrices[book] = newPrice;
+                } else {
+                    delete levels[currentLevelIndex].booksPrices[book];
+                    e.target.value = '';
+                }
+                
+                try {
+                    await appDataDocRef.set({ levels }, { merge: true });
+                    localStorage.setItem('bookAppData_levels', JSON.stringify({ levels }));
+                    renderChosenBooksTables(); // Update main page prices if book is chosen
+                } catch (error) {
+                    console.error('خطأ في حفظ الثمن:', error);
+                    showTemporaryAlert('حدث خطأ في حفظ الثمن', 'error');
+                }
+            };
+        } else {
+            priceInput.disabled = true;
+            if (!currentPrice) {
+               priceInput.style.display = 'none'; // Hide if no price and can't edit
+            }
+        }
+        
+        titleContainer.appendChild(priceInput);
         btn.appendChild(titleContainer);
 
         const controlsDiv = document.createElement('div');
@@ -1695,7 +1262,6 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
  
  
          // أزرار إدارة الصور (للمديرين والمحررين)
-         const hasEditPermission = isAdmin || (currentUser && currentUser.canEditContent);
          
          // البحث عن صورة الكتاب في كلا المكانين
          let bookImageUrl = null;
@@ -1918,6 +1484,9 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
     function renderChosenBooksTables() {
       const div = document.getElementById('chosenBooksTables');
       div.innerHTML = '';
+      let grandTotal = 0;
+      let totalBooksCount = 0;
+      let tablesHTML = '';
       // Iterate through the main 'levels' array to ensure the correct order of display.
       levels.forEach(level => {
         const levelName = level.name;
@@ -1935,6 +1504,8 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         <table class="chosen-books-table">
           <tr>
             <th>الكتاب</th>
+            <th>الثمن</th>
+
             <th>العدد</th>
             <th>لا</th>
             <th>إزالة</th>
@@ -1942,8 +1513,24 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         // Sort the books alphabetically within each table for better organization.
         Object.keys(books).sort((a, b) => a.localeCompare(b, 'ar')).forEach(book => {
           const isMarkedNo = markedAsNo[levelName] && markedAsNo[levelName][book];
+          const count = books[book] || 1;
+          totalBooksCount++;
+          
+          const levelObj = levels.find(l => l.name === levelName);
+          let priceHTML = '<span style="color:#a0aec0;">-</span>';
+          let totalHTML = '<span style="color:#a0aec0;">-</span>';
+          if (levelObj && levelObj.booksPrices && levelObj.booksPrices[book]) {
+             const price = levelObj.booksPrices[book];
+             const total = price * count;
+             grandTotal += total;
+             priceHTML = `<span style="font-weight:bold; color:#3182ce;">${price} درهم</span>`;
+             totalHTML = `<span style="font-weight:bold; color:#e53e3e;">${total} درهم</span>`;
+          }
+
           html += `<tr>
             <td>${book}</td>
+            <td style="text-align:center;">${priceHTML}</td>
+
             <td>
               <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
                 <button title="نقص واحد" style="padding:2px 8px; border:1px solid #e2e8f0; background:#f7fafc; border-radius:4px; cursor:pointer;" onclick="changeBookCount('${levelName}','${book}', -1)">−</button>
@@ -1962,8 +1549,24 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
           </tr>`;
         });
         html += `</table>`;
-        div.innerHTML += html;
+        tablesHTML += html;
       });
+      
+      // (Badge update removed from here, now tracks actual requestedBooks array)
+
+      // Update grand total sticky bar
+      const totalBar = document.getElementById('grandTotalBar');
+      if (totalBar) {
+        if (grandTotal > 0) {
+          totalBar.style.display = 'flex';
+          const amountEl = totalBar.querySelector('#grandTotalAmount');
+          if (amountEl) amountEl.textContent = grandTotal.toFixed(2) + ' درهم';
+        } else {
+          totalBar.style.display = 'none';
+        }
+      }
+      
+      div.innerHTML = tablesHTML;
     }
 
     function changeBookCount(levelName, book, delta) {
@@ -2948,6 +2551,35 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         }
       };
 
+      window.editSubject = async function(levelIndex, subjectIndex) {
+        const hasEditPermission = isAdmin || (currentUser && currentUser.canEditContent);
+        if (!hasEditPermission) return;
+        
+        const currentName = levels[levelIndex].subjects[subjectIndex].name;
+        
+        if (deletePassword) {
+          const entered = prompt("الرجاء إدخال الرقم السري لتعديل المادة:");
+          if (entered !== deletePassword) {
+            showTemporaryAlert('الرقم السري غير صحيح', 'error');
+            return;
+          }
+        }
+        
+        const newName = prompt("أدخل الاسم الجديد للمادة:", currentName);
+        if (newName && newName.trim() !== "" && newName.trim() !== currentName) {
+            levels[levelIndex].subjects[subjectIndex].name = newName.trim();
+            try {
+                await appDataDocRef.set({ levels }, { merge: true });
+                showTemporaryAlert("تم تعديل اسم المادة بنجاح", "success");
+                renderLevelModal(levelIndex);
+                openSubjectBooks(subjectIndex);
+            } catch (error) {
+                console.error("Error updating subject name:", error);
+                showTemporaryAlert("حدث خطأ أثناء الحفظ", "error");
+            }
+        }
+      };
+
       window.deleteSubject = async function(levelIndex, subjectIndex) {
         const hasEditPermission = isAdmin || (currentUser && currentUser.canEditContent);
         if (!hasEditPermission) return;
@@ -2996,12 +2628,48 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         }
       };
 
+      window.editBookPrice = async function(levelIndex, bookName) {
+        const hasEditPermission = isAdmin || (currentUser && currentUser.canEditContent);
+        if (!hasEditPermission) return;
+        
+        let currentPrice = "";
+        if (levels[levelIndex].booksPrices && levels[levelIndex].booksPrices[bookName]) {
+            currentPrice = levels[levelIndex].booksPrices[bookName];
+        }
+        
+        const priceStr = prompt(`أدخل الثمن الجديد للكتاب "${bookName}" (اتركه فارغاً لإزالة الثمن):`, currentPrice);
+        if (priceStr !== null) {
+            const price = priceStr.trim() !== "" ? parseFloat(priceStr) : null;
+            
+            if (!levels[levelIndex].booksPrices) levels[levelIndex].booksPrices = {};
+            
+            if (price !== null && !isNaN(price)) {
+                levels[levelIndex].booksPrices[bookName] = price;
+            } else {
+                delete levels[levelIndex].booksPrices[bookName];
+            }
+            
+            try {
+                await appDataDocRef.set({ levels }, { merge: true });
+                renderBooksList();
+                showTemporaryAlert("تم تحديث الثمن بنجاح", "success");
+                localStorage.setItem('bookAppData_levels', JSON.stringify({ levels }));
+            } catch (error) {
+                console.error("خطأ في حفظ الثمن:", error);
+                showTemporaryAlert("حدث خطأ في الحفظ", "error");
+            }
+        }
+      };
+
       window.addBookToSubject = async function(levelIndex, subjectIndex) {
         const hasEditPermission = isAdmin || (currentUser && currentUser.canEditContent);
         if (!hasEditPermission) return;
         
         const bookName = prompt("أدخل اسم الكتاب الجديد:");
         if (bookName && bookName.trim()) {
+            const priceStr = prompt("أدخل ثمن الكتاب بالدرهم (اختياري):");
+            const price = priceStr && priceStr.trim() !== "" ? parseFloat(priceStr) : null;
+            
             const name = bookName.trim();
             if (levels[levelIndex].books && levels[levelIndex].books.includes(name)) {
                 showTemporaryAlert("يوجد كتاب بهذا الاسم بالفعل في هذا المستوى!", "error");
@@ -3015,6 +2683,11 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
             if (!levels[levelIndex].subjects[subjectIndex].books) levels[levelIndex].subjects[subjectIndex].books = [];
             levels[levelIndex].subjects[subjectIndex].books.push(name);
             levels[levelIndex].subjects[subjectIndex].books = sortBooks(levels[levelIndex].subjects[subjectIndex].books);
+            
+            if (price !== null && !isNaN(price)) {
+                if (!levels[levelIndex].booksPrices) levels[levelIndex].booksPrices = {};
+                levels[levelIndex].booksPrices[name] = price;
+            }
             
             try {
                 await appDataDocRef.set({ levels }, { merge: true });
@@ -3154,70 +2827,17 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
          
          // حفظ في التخزين المحلي
          localStorage.setItem('bookAppData_levels', JSON.stringify({ levels }));
-       } catch (error) {
-         console.error("خطأ في تحريك المستوى:", error);
-         showTemporaryAlert("حدث خطأ في حفظ التغييرات. يرجى المحاولة مرة أخرى", "error");
-         
-         // استعادة الترتيب القديم
-         [levels[idx-1], levels[idx]] = [levels[idx], levels[idx-1]];
-         renderLevelsSettingsModal();
-       }
-     };
-         window.moveLevelDown = async function(idx) {
-       const hasEditPermission = isAdmin || (currentUser && currentUser.canEditContent);
-       if (!hasEditPermission) {
-         showTemporaryAlert("ليس لديك صلاحية لتغيير ترتيب المستويات", "error");
-         return;
-       }
-
-       if (idx === levels.length-1) {
-         showTemporaryAlert("هذا المستوى في الأسفل بالفعل", "error");
-         return;
-       }
-
-       try {
-         // تحريك المستوى محلياً
-         [levels[idx+1], levels[idx]] = [levels[idx], levels[idx+1]];
-         
-         // حفظ في Firestore
-         await appDataDocRef.set({ levels }, { merge: true });
-         
-         // تحديث الواجهة
-         renderLevels();
-         renderLevelsSettingsModal();
-         renderChosenBooksTables();
-         showTemporaryAlert("تم تحريك المستوى للأسفل وسيظهر التغيير لجميع المستخدمين", "success");
-         
-         // حفظ في التخزين المحلي
-         localStorage.setItem('bookAppData_levels', JSON.stringify({ levels }));
-       } catch (error) {
-         console.error("خطأ في تحريك المستوى:", error);
-         showTemporaryAlert("حدث خطأ في حفظ التغييرات. يرجى المحاولة مرة أخرى", "error");
-         
-         // استعادة الترتيب القديم
-         [levels[idx+1], levels[idx]] = [levels[idx], levels[idx+1]];
-         renderLevelsSettingsModal();
-       }
-     };
-    window.deleteLevel = async function(idx) {
-      const hasEditPermission = isAdmin || (currentUser && currentUser.canEditContent);
-      if (!hasEditPermission) {
-        showTemporaryAlert("ليس لديك صلاحية لحذف المستويات", "error");
-        return;
+        } catch (error) {
+          console.error("خطأ في تحريك المستوى:", error);
+          showTemporaryAlert("حدث خطأ في تحريك المستوى. يرجى المحاولة مرة أخرى", "error");
+        }
       }
 
-      const levelName = levels[idx].name;
-      if (confirm(`هل أنت متأكد من حذف المستوى "${levelName}"؟
-سيؤدي ذلك إلى:
-- حذف جميع الكتب في هذا المستوى
-- إزالة المستوى من قوائم جميع المستخدمين`)) {
-        if (deletePassword) {
-          const entered = prompt("الرجاء إدخال الرقم السري للحذف:");
-          if (entered !== deletePassword) {
-            showTemporaryAlert('الرقم السري غير صحيح', 'error');
-            return;
-          }
+      window.deleteLevel = async function(idx, levelName) {
+        if (!confirm(`هل أنت متأكد من رغبتك في حذف المستوى الدراسي "${levelName}"؟\nسيتم حذف جميع المواد والكتب التابعة له.`)) {
+          return;
         }
+
         try {
           // حفظ نسخة احتياطية
           const oldLevels = [...levels];
@@ -3258,6 +2878,32 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
           renderLevelsSettingsModal();
         }
       }
+
+    let currentPrintAction = null;
+    
+    window.closePrintOptionsModal = function() {
+       const modal = document.getElementById('printOptionsModal');
+       if (modal) modal.style.display = 'none';
+       currentPrintAction = null;
+    };
+    
+    window.confirmPrintOptions = function(showPrices) {
+       const action = currentPrintAction;
+       closePrintOptionsModal();
+       if (action === 'normal') {
+          renderChosenBooksPDFWindow(chosenBooks, {
+            title: 'لائحة الكتب المدرسية المختارة',
+            isArchive: false,
+            showPrices: showPrices
+          });
+       } else if (action === 'alphabetical') {
+          renderChosenBooksPDFWindow(chosenBooks, {
+            title: 'لائحة الكتب المدرسية المختارة (مرتبة أبجدياً)',
+            isArchive: false,
+            flatAlphabetical: true,
+            showPrices: showPrices
+          });
+       }
     };
 
     function exportPDF() {
@@ -3266,17 +2912,20 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         return;
       }
 
-      // التحقق من وجود كتب فعلية في المستويات
       const hasBooks = Object.values(chosenBooks).some(books => books && typeof books === 'object' && Object.keys(books).length > 0);
       if (!hasBooks) {
         showTemporaryAlert('لا توجد كتب مختارة لتصديرها', 'warning');
         return;
       }
 
-      renderChosenBooksPDFWindow(chosenBooks, {
-        title: 'لائحة الكتب المدرسية المختارة',
-        isArchive: false
-      });
+      currentPrintAction = 'normal';
+      const modal = document.getElementById('printOptionsModal');
+      if (modal) {
+          modal.style.display = 'flex';
+      } else {
+          const showPrices = confirm("هل تريد إظهار الأثمنة في الطباعة؟");
+          confirmPrintOptions(showPrices);
+      }
     }
 
     function exportPDFAlphabetical() {
@@ -3291,13 +2940,15 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         return;
       }
 
-      renderChosenBooksPDFWindow(chosenBooks, {
-        title: 'لائحة الكتب المدرسية المختارة (مرتبة أبجديا)',
-        isArchive: false,
-        flatAlphabetical: true
-      });
+      currentPrintAction = 'alphabetical';
+      const modal = document.getElementById('printOptionsModal');
+      if (modal) {
+          modal.style.display = 'flex';
+      } else {
+          const showPrices = confirm("هل تريد إظهار الأثمنة في الطباعة؟");
+          confirmPrintOptions(showPrices);
+      }
     }
-
     function sortBooks(books) {
       // دالة تحديد اللغة
       function getLang(text) {
@@ -3355,23 +3006,6 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
     }
 
     // Fallback function to load data from browser's local storage
-    
-    function migrateLevelsData(levelsData) {
-      if (!Array.isArray(levelsData)) return levelsData;
-      levelsData.forEach(level => {
-        if (!level.subjects) {
-          level.subjects = [{
-            name: "مواد عامة",
-            books: level.books ? [...level.books] : []
-          }];
-        }
-        if (!level.books) {
-          level.books = [];
-        }
-      });
-      return levelsData;
-    }
-
     function loadFromLocalStorage() {
       try {
         // Try localStorage first
@@ -3391,7 +3025,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         // Load levels data
         if (levelsDataString) {
           const levelsData = JSON.parse(levelsDataString);
-          if (levelsData.levels) levels = migrateLevelsData(levelsData.levels);
+          if (levelsData.levels) levels = levelsData.levels;
         }
 
         // Load user-specific chosen books
@@ -3448,20 +3082,6 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         const appDataDoc = await appDataDocRef.get();
         if (appDataDoc.exists) {
           const data = appDataDoc.data();
-          if (data.bookStatistics) {
-            bookStatistics = data.bookStatistics;
-            // التحقق إذا كانت البنية قديمة (رقم بدلاً من كائن للمستوى) وتصفيرها
-            for (const key in bookStatistics) {
-              if (typeof bookStatistics[key] !== 'object') {
-                bookStatistics = {};
-                break;
-              }
-            }
-          }
-          if (data.shopPhone) shopPhone = data.shopPhone;
-            if (data.deletePassword !== undefined) deletePassword = data.deletePassword;
-          if (document.getElementById('shopPhoneInput')) document.getElementById('shopPhoneInput').value = shopPhone;
-          
           if (data.levels && data.levels.length > 0) {
             levels = data.levels;
             localStorage.setItem('bookAppData_levels', JSON.stringify({ levels }));
@@ -3511,6 +3131,14 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
           if (data.levels && data.levels.length > 0) {
             levels = data.levels;
             localStorage.setItem('bookAppData_levels', JSON.stringify({ levels }));
+          }
+
+          // Load requested books if they exist
+          if (data.requestedBooks) {
+            requestedBooks = data.requestedBooks;
+            if (typeof updateRequestedBooksBadge === 'function') {
+                updateRequestedBooksBadge();
+            }
           }
         }
 
@@ -3758,7 +3386,6 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       document.getElementById('forgotPasswordModal').style.display = 'none';
       document.getElementById('adminModal').style.display = 'none';
       document.getElementById('booksModal').style.display = 'none';
-      document.getElementById('booksModal').classList.remove('full-page-modal');
       document.getElementById('settingsModal').style.display = 'none';
     }
 
@@ -4200,16 +3827,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       }
       
       // تأكيد مزدوج لأهمية هذا الإجراء
-      const confirmMessage = `هل أنت متأكد من جعل "${userName}" مديراً؟
-
-سيحصل هذا المستخدم على جميع صلاحيات المدير بما في ذلك:
-- إدارة المستخدمين
-- تعديل المستويات والكتب
-- إرسال الرسائل الإدارية
-- الوصول إلى الأرشيف
-- جعل مستخدمين آخرين مدراء
-
-هذا الإجراء مهم جداً!`;
+      const confirmMessage = `هل أنت متأكد من جعل "${userName}" مديراً؟\n\nسيحصل هذا المستخدم على جميع صلاحيات المدير بما في ذلك:\n- إدارة المستخدمين\n- تعديل المستويات والكتب\n- إرسال الرسائل الإدارية\n- الوصول إلى الأرشيف\n- جعل مستخدمين آخرين مدراء\n\nهذا الإجراء مهم جداً!`;
       
       if (!confirm(confirmMessage)) {
         return;
@@ -4255,11 +3873,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
         return;
       }
       
-      const confirmMessage = `هل أنت متأكد من إلغاء صلاحيات المدير للمستخدم "${userName}"؟
-
-سيتم تحويل هذا المستخدم إلى مستخدم عادي وسيفقد جميع صلاحيات المدير.
-
-هذا الإجراء مهم جداً!`;
+      const confirmMessage = `هل أنت متأكد من إلغاء صلاحيات المدير للمستخدم "${userName}"؟\n\nسيتم تحويل هذا المستخدم إلى مستخدم عادي وسيفقد جميع صلاحيات المدير.\n\nهذا الإجراء مهم جداً!`;
       
       if (!confirm(confirmMessage)) {
         return;
@@ -4795,7 +4409,6 @@ async function showNotificationDetail(notification) {
       }
       
       modal.style.display = 'flex';
-        modal.classList.add('full-page-modal');
       
       // Close dropdown
       toggleNotifications();
@@ -5805,7 +5418,6 @@ async function showNotificationDetail(notification) {
       }
       
       modal.style.display = 'flex';
-        modal.classList.add('full-page-modal');
     }
     
     // Mark user-to-admin message as read
@@ -7074,7 +6686,6 @@ async function showNotificationDetail(notification) {
       
       // عرض النافذة المنبثقة
       modal.style.display = 'flex';
-        modal.classList.add('full-page-modal');
     }
     
     // إظهار الخيار المحدد (كتاب جديد أو كتاب موجود)
@@ -7123,7 +6734,7 @@ async function showNotificationDetail(notification) {
       const selectedLevel = levelSelect.value;
       
       // مسح قائمة الكتب
-      bookSelect.innerHTML = '<option value="">-- اختر الكتاب --</option>';
+      bookSelect.innerHTML = '';
       
       if (!selectedLevel) return;
       
@@ -9508,7 +9119,6 @@ function showMatchingBookDetails(matchingExchange) {
   const modal = document.createElement('div');
   modal.className = 'modal';
   modal.style.display = 'flex';
-        modal.classList.add('full-page-modal');
   modal.id = 'matchingBookModal';  
   
   const typeText = matchingExchange.type === 'offer' ? 'عرض' : 'طلب';
@@ -10261,7 +9871,6 @@ function showMessageDetailsModal(messageId, messageData) {
 
   // إظهار نافذة تفاصيل الرسالة أولاً
   modal.style.display = 'flex';
-        modal.classList.add('full-page-modal');
 
   const timestamp = formatDateWithEnglishNumbers(messageData.timestamp);
   
@@ -11253,126 +10862,254 @@ window.showInboxMessages = showInboxMessages;
 window.createInboxModal = createInboxModal;
 window.showMessageDetailsModal = showMessageDetailsModal;
 window.createMessageDetailsModal = createMessageDetailsModal;
-    window.toggleMarkedAsNo = function(levelName, book, isChecked) {
-      if (!markedAsNo[levelName]) markedAsNo[levelName] = {};
-      markedAsNo[levelName][book] = isChecked;
-    };
+// ==========================================
+// REQUESTED BOOKS FEATURE (Re-implemented)
+// ==========================================
 
-    window.saveShopPhone = function() {
-      const phone = document.getElementById('shopPhoneInput').value.trim();
-      appDataDocRef.set({ shopPhone: phone }, { merge: true }).then(() => {
-        shopPhone = phone; // Update global variable immediately
-        showTemporaryAlert("تم حفظ رقم الهاتف بنجاح", "success");
-      });
-    };
+let requestedBooks = [];
 
-    window.showBookStatisticsModal = function() {
-      const container = document.getElementById('bookStatisticsContainer');
-      container.innerHTML = '';
-      
-      if (Object.keys(bookStatistics).length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding: 30px; color: #718096;">لا توجد إحصائيات حتى الآن</div>';
-      } else {
-        // ترتيب المستويات حسب الموجود في levels لضمان الترتيب الصحيح إذا أمكن
-        const levelNames = Object.keys(bookStatistics);
-        levelNames.forEach(levelName => {
-           const booksObj = bookStatistics[levelName];
-           if (Object.keys(booksObj).length === 0) return;
-           
-           const sortedBooks = Object.keys(booksObj).sort((a, b) => booksObj[b] - booksObj[a]);
-           
-           let html = `<div style="text-align:center; margin-top:20px; margin-bottom:15px;">
-              <h4 style="margin:0; padding:8px 15px; background:linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); color:#2d3748; border-radius:15px; display:inline-block; font-weight:600; border: 1px solid #e2e8f0;">${escapeHTML(levelName)}</h4>
-            </div>
-            <table class="chosen-books-table" style="width:100%; margin-bottom: 20px;">
-              <thead>
-                <tr>
-                  <th>الكتاب</th>
-                  <th>مرات الطلب</th>
-                </tr>
-              </thead>
-              <tbody>`;
-              
-            sortedBooks.forEach(book => {
-               html += `<tr>
-                 <td>${escapeHTML(book)}</td>
-                 <td style="text-align:center; font-weight:bold;">${booksObj[book]}</td>
-               </tr>`;
+window.populateCustomerNamesDatalist = function() {
+    const datalist = document.getElementById('customerNamesList');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    const uniqueNames = [...new Set(requestedBooks.map(r => r.name.trim()))];
+    uniqueNames.forEach(name => {
+        if(name) {
+            const opt = document.createElement('option');
+            opt.value = name;
+            datalist.appendChild(opt);
+        }
+    });
+};
+
+window.showRequestedBooksModal = function() {
+    const modal = document.getElementById('requestedBooksModal');
+    if (modal) {
+        populateCustomerNamesDatalist();
+        modal.style.display = 'flex';
+        const levelSelect = document.getElementById('requestLevel');
+        if (levelSelect) {
+            levelSelect.innerHTML = '<option value="">-- اختر المستوى --</option>';
+            levels.forEach(level => {
+                const opt = document.createElement('option');
+                opt.value = level.name;
+                opt.textContent = level.name;
+                levelSelect.appendChild(opt);
             });
-            
-            html += `</tbody></table>`;
-            container.innerHTML += html;
-        });
-      }
-      
-      document.getElementById('bookStatisticsModal').style.display = 'flex';
-    };
-
-    window.printBookStatistics = function() {
-      if (Object.keys(bookStatistics).length === 0) {
-         alert("لا توجد إحصائيات للطباعة");
-         return;
-      }
-      
-      let htmlContent = `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <title>إحصائيات الكتب المطلوبة</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
-    body { font-family: 'Tajawal', sans-serif; padding: 20px; color: #1a202c; background: white; }
-    h1 { text-align: center; color: #2d3748; margin-bottom: 5px; }
-    .phone-header { text-align: center; font-size: 1.2rem; color: #4a5568; margin-bottom: 30px; }
-    .level-title { text-align: center; margin-top: 30px; margin-bottom: 15px; }
-    .level-title span { background: #edf2f7; padding: 8px 20px; border-radius: 15px; font-weight: bold; border: 1px solid #e2e8f0; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-    th, td { padding: 10px; border: 1px solid #cbd5e0; text-align: right; }
-    th { background-color: #f7fafc; color: #4a5568; }
-    td:last-child, th:last-child { text-align: center; width: 100px; }
-    @media print {
-      body { padding: 0; }
-      @page { margin: 1cm; }
+        }
+        renderRequestedBooksList();
     }
-  </style>
-</head>
-<body>
-  <h1>📊 إحصائيات الكتب المطلوبة</h1>
-  ${shopPhone ? `<div class="phone-header">📞 ${escapeHTML(shopPhone)}</div>` : ''}
-`;
+};
 
-      const levelNames = Object.keys(bookStatistics);
-      levelNames.forEach(levelName => {
-         const booksObj = bookStatistics[levelName];
-         if (Object.keys(booksObj).length === 0) return;
-         
-         const sortedBooks = Object.keys(booksObj).sort((a, b) => booksObj[b] - booksObj[a]);
-         htmlContent += `<div class="level-title"><span>${escapeHTML(levelName)}</span></div>
-          <table>
-            <thead>
-              <tr>
-                <th>الكتاب</th>
-                <th>مرات الطلب</th>
-              </tr>
-            </thead>
-            <tbody>`;
-            
-          sortedBooks.forEach(book => {
-             htmlContent += `<tr>
-               <td>${escapeHTML(book)}</td>
-               <td>${booksObj[book]}</td>
-             </tr>`;
-          });
-          htmlContent += `</tbody></table>`;
-      });
-      
-      htmlContent += `</body></html>`;
-      
-      const win = window.open('', '_blank');
-      win.document.write(htmlContent);
-      win.document.close();
-      win.onload = () => {
-         win.print();
-      };
-    };
+window.closeRequestedBooksModal = function() {
+    const modal = document.getElementById('requestedBooksModal');
+    if (modal) modal.style.display = 'none';
+};
 
+window.populateRequestedBooks = function() {
+    const levelSelect = document.getElementById('requestLevel');
+    const bookSelect = document.getElementById('requestBooksContainer');
+    if (!levelSelect || !bookSelect) return;
+    
+    bookSelect.innerHTML = '<option value="">-- اختر الكتاب --</option>';
+    const levelName = levelSelect.value;
+    if (!levelName) return;
+    
+    const levelObj = levels.find(l => l.name === levelName);
+    if (!levelObj) return;
+    
+    const allBooks = [];
+    if (levelObj.subjects) {
+        levelObj.subjects.forEach(subj => {
+            if (subj.books) allBooks.push(...subj.books);
+        });
+    }
+    
+    if (allBooks.length === 0 && levelObj.books) {
+        allBooks.push(...levelObj.books);
+    }
+    
+    allBooks.sort((a, b) => a.localeCompare(b, 'ar')).forEach(book => {
+        const label = document.createElement('label');
+        label.style.display = 'block';
+        label.style.padding = '6px';
+        label.style.borderBottom = '1px solid #f7fafc';
+        label.style.cursor = 'pointer';
+        label.style.color = '#2d3748';
+        label.innerHTML = `<input type="checkbox" name="requested_book_item" value="${escapeHTML(book)}" style="margin-left: 8px;"> ${escapeHTML(book)}`;
+        bookSelect.appendChild(label);
+    });
+};
+
+window.addRequestedBook = async function(event) {
+    event.preventDefault();
+    const nameEl = document.getElementById('requestName');
+    const levelEl = document.getElementById('requestLevel');
+    
+    const checkedBoxes = document.querySelectorAll('input[name="requested_book_item"]:checked');
+    
+    if (!nameEl.value || !levelEl.value || checkedBoxes.length === 0) {
+        showTemporaryAlert('المرجوا ملء الاسم والمستوى واختيار كتاب واحد على الأقل', 'warning');
+        return;
+    }
+    
+    const nowTimestamp = Date.now();
+    let addedCount = 0;
+    
+    checkedBoxes.forEach((box, index) => {
+        const newRequest = {
+            id: 'req_' + nowTimestamp + '_' + index,
+            name: nameEl.value.trim(),
+            level: levelEl.value,
+            book: box.value,
+            date: new Date().toLocaleDateString('ar-MA')
+        };
+        requestedBooks.push(newRequest);
+        addedCount++;
+    });
+    
+    try {
+        await appDataDocRef.set({ requestedBooks }, { merge: true });
+        showTemporaryAlert('تمت إضافة الطلب بنجاح', 'success');
+        
+        nameEl.value = '';
+        levelEl.value = '';
+        const bookContainer = document.getElementById('requestBooksContainer');
+        if (bookContainer) bookContainer.innerHTML = '<div style="color: #a0aec0; text-align: center; margin-top: 20px;">-- المرجو اختيار المستوى أولاً --</div>';
+        
+        populateCustomerNamesDatalist();
+        renderRequestedBooksList();
+        updateRequestedBooksBadge();
+    } catch (error) {
+        console.error("Error adding requested book: ", error);
+        showTemporaryAlert('حدث خطأ أثناء حفظ الطلب', 'error');
+    }
+};
+
+window.deleteRequestedBook = async function(id) {
+    if (!confirm('هل أنت متأكد من حذف هذا الطلب؟')) return;
+    
+    requestedBooks = requestedBooks.filter(r => r.id !== id);
+    
+    try {
+        await appDataDocRef.set({ requestedBooks }, { merge: true });
+        renderRequestedBooksList();
+        updateRequestedBooksBadge();
+        showTemporaryAlert('تم الحذف بنجاح', 'success');
+    } catch (error) {
+        console.error("Error deleting requested book: ", error);
+        showTemporaryAlert('حدث خطأ أثناء الحذف', 'error');
+    }
+};
+
+window.renderRequestedBooksList = function(filterText = '') {
+    const tbody = document.getElementById('requestedBooksTableBody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    const lowerFilter = filterText.toLowerCase();
+    const filtered = requestedBooks.filter(r => 
+        r.name.toLowerCase().includes(lowerFilter) || 
+        r.book.toLowerCase().includes(lowerFilter) ||
+        r.level.toLowerCase().includes(lowerFilter)
+    );
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:15px; color:#a0aec0;">لا توجد طلبات حالياً</td></tr>';
+        return;
+    }
+    
+    filtered.slice().reverse().forEach(req => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #e2e8f0';
+        
+        const tdName = document.createElement('td');
+        tdName.style.padding = '10px'; tdName.style.textAlign = 'right';
+        tdName.textContent = req.name;
+        
+        const tdLevel = document.createElement('td');
+        tdLevel.style.padding = '10px'; tdLevel.style.textAlign = 'right';
+        tdLevel.textContent = req.level;
+        
+        const tdBook = document.createElement('td');
+        tdBook.style.padding = '10px'; tdBook.style.textAlign = 'right'; tdBook.style.fontWeight = 'bold'; tdBook.style.color = '#2b6cb0';
+        tdBook.textContent = req.book;
+        
+        const tdDate = document.createElement('td');
+        tdDate.style.padding = '10px'; tdDate.style.textAlign = 'center'; tdDate.style.color = '#718096'; tdDate.style.fontSize = '0.9em';
+        tdDate.textContent = req.date;
+        
+        const tdAction = document.createElement('td');
+        tdAction.style.padding = '10px'; tdAction.style.textAlign = 'center';
+        
+        const btn = document.createElement('button');
+        btn.textContent = 'حذف';
+        btn.style.background = '#fc8181'; btn.style.color = 'white'; btn.style.border = 'none'; btn.style.padding = '4px 8px'; btn.style.borderRadius = '4px'; btn.style.cursor = 'pointer';
+        btn.onclick = () => window.deleteRequestedBook(req.id);
+        
+        tdAction.appendChild(btn);
+        
+        tr.appendChild(tdName);
+        tr.appendChild(tdLevel);
+        tr.appendChild(tdBook);
+        tr.appendChild(tdDate);
+        tr.appendChild(tdAction);
+        
+        tbody.appendChild(tr);
+    });
+};
+
+window.filterRequestedBooks = function() {
+    const input = document.getElementById('searchRequestedBooksInput');
+    if (input) {
+        renderRequestedBooksList(input.value);
+    }
+};
+
+window.updateRequestedBooksBadge = function() {
+    const badge = document.getElementById('requestedBooksBadge');
+    if (badge) {
+        const count = requestedBooks.length;
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+};
+
+window.printRequestedBooks = function() {
+    if (requestedBooks.length === 0) {
+        showTemporaryAlert('لا توجد طلبات لطباعتها', 'warning');
+        return;
+    }
+    
+    const htmlContent = '<html dir="rtl" lang="ar"><head><title>لائحة الكتب المطلوبة</title><style>body { font-family: Cairo, sans-serif; padding: 5px; font-size: 11px; } h2 { text-align: center; color: #2d3748; margin-bottom: 10px; font-size: 16px; } table { width: 100%; border-collapse: collapse; margin-top: 5px; } th, td { border: 1px solid #cbd5e0; padding: 3px 5px; text-align: right; } th { background-color: #edf2f7; font-weight: bold; } @media print { @page { margin: 5mm; } }</style></head><body><h2>لائحة الكتب المطلوبة من الزبناء</h2><table><thead><tr><th>الزبون</th><th>المستوى</th><th>الكتاب</th><th>التاريخ</th></tr></thead><tbody>' +
+    requestedBooks.map(req => '<tr><td>' + req.name + '</td><td>' + req.level + '</td><td>' + req.book + '</td><td>' + req.date + '</td></tr>').join('') + 
+    '</tbody></table><div style="margin-top:30px; text-align:center; font-size:0.9em; color:#718096;">تم استخراج هذه اللائحة بتاريخ: ' + new Date().toLocaleDateString('ar-MA') + '</div><script>window.onload = function() { setTimeout(() => window.print(), 500); }</script></body></html>';
+
+    let printFrame = document.getElementById('print-iframe');
+    if (!printFrame) {
+        printFrame = document.createElement('iframe');
+        printFrame.id = 'print-iframe';
+        printFrame.style.position = 'absolute';
+        printFrame.style.top = '-9999px';
+        printFrame.style.width = '0';
+        printFrame.style.height = '0';
+        printFrame.style.border = 'none';
+        document.body.appendChild(printFrame);
+    }
+    
+    try {
+        const doc = printFrame.contentWindow.document;
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+    } catch (e) {
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    }
+};
+
+window.exportPDF = exportPDF;
+window.exportPDFAlphabetical = exportPDFAlphabetical;
+window.confirmPrintOptions = confirmPrintOptions;

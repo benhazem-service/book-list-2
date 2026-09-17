@@ -37,212 +37,236 @@
 
   <!-- Main App (shown when authenticated) -->
   <div id="main-app" style="display: none;">
-    <!-- Sidebar Toggle Button -->
-    <button id="sidebar-toggle" style="position: fixed; top: 20px; right: 20px; z-index: 1003; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; cursor: pointer; box-shadow: 0 4px 12px rgba(159, 122, 234, 0.3); transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; font-size: 1.2em;">
-      ☰
-      <!-- Badge for total notifications and messages -->
-      <span id="sidebar-toggle-badge" style="position: absolute; top: -5px; left: -5px; background: #e53e3e; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 0.7em; font-weight: bold; display: none; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">0</span>
-    </button>
 
-    <!-- Sidebar -->
-    <div id="sidebar" style="position: fixed; top: 0; right: -350px; width: 350px; height: 100vh; background: white; box-shadow: -2px 0 15px rgba(0,0,0,0.1); z-index: 1002; transition: right 0.3s ease; overflow-y: auto; padding: 20px 0;">
-      <!-- User Info Section -->
-      <div id="sidebar-user-info" style="padding: 20px; border-bottom: 1px solid #e2e8f0; text-align: center;">
-        <div style="font-size: 1.5em; margin-bottom: 10px; color: #667eea;">👤</div>
-        <div id="sidebar-user-name" style="color: #2d3748; font-weight: bold; font-size: 1.2em; margin-bottom: 5px;"></div>
-        <span id="sidebar-welcome-text" style="color: #667eea; font-weight: bold; font-size: 1.1em;"></span>
-      </div>
-
-      <!-- Connection Status -->
-      <div style="padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
-        <div id="sidebar-connectionStatus" style="display: flex; align-items: center; justify-content: center; background-color: #f7fafc; padding: 8px 15px; border-radius: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-          <span id="sidebar-connectionStatusDot" style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #4caf50; margin-left: 10px;"></span>
-          <span id="sidebar-connectionStatusText" style="font-size: 0.9em; font-weight: 600;">متصل</span>
-        </div>
-      </div>
-
-      <!-- Main Actions -->
-      <div style="padding: 20px;">
-        <button id="sidebar-refreshAppBtn" class="sidebar-btn" onclick="refreshApp()" title="تحديث البيانات">
-          <span>🔄</span>
-          <span>تحديث البيانات</span>
+    <!-- ===== APP HEADER (Fixed top bar) ===== -->
+    <header class="app-header">
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <!-- القائمة (sidebar trigger) -->
+        <button id="sidebar-toggle" class="app-header-btn" title="القائمة" style="position: relative; font-size: 1.2em; padding-bottom: 2px;">
+          ☰
+          <span id="sidebar-toggle-badge" class="app-header-badge">0</span>
         </button>
-        
-        <!-- Notifications -->
+        <div class="app-header-title">
+        <span class="app-header-title-icon">📚</span>
+        إدارة الكتب الدراسية
+      </div>
+      </div>
+    <div class="app-header-actions">
+      <!-- Grand Total -->
+      <div id="headerGrandTotal" style="font-weight: bold; color: #10b981; background: #ecfdf5; padding: 4px 10px; border-radius: 6px; font-size: 0.9em; margin-left: 10px; display: none; align-items: center; border: 1px solid #a7f3d0;">
+        <span style="margin-left: 4px;">المجموع:</span> <span id="headerGrandTotalAmount">0 درهم</span>
+      </div>
+
+      <!-- تحديث -->
+        <button class="app-header-btn" id="header-refreshBtn" onclick="refreshApp()" title="تحديث البيانات">🔄</button>
+
+        <!-- إشعارات -->
         <div class="sidebar-notifications-container" style="position: relative;">
-          <button id="sidebar-notificationsBtn" class="sidebar-btn" title="الإشعارات">
-            <span>🔔</span>
-            <span>الإشعارات</span>
-            <span id="sidebar-notificationsBadge" class="sidebar-badge" style="display: none;">0</span>
+          <button class="app-header-btn" id="sidebar-notificationsBtn" title="الإشعارات">
+            🔔
+            <span id="sidebar-notificationsBadge" class="app-header-badge">0</span>
           </button>
-          <!-- Notifications Dropdown -->
-          <div id="sidebar-notificationsDropdown" class="notifications-dropdown" style="display: none; position: absolute; top: 100%; right: 0; width: 320px; max-height: 400px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden;">
-            <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+          <div id="sidebar-notificationsDropdown" class="notifications-dropdown" style="display: none; position: absolute; top: calc(100% + 10px); left: 0; width: 320px; max-height: 400px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 2000; overflow: hidden;">
+            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: #2d3748; font-size: 1.1em;">الإشعارات</h3>
-                <button onclick="clearAllNotifications()" style="background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">مسح الكل</button>
+                <h3 style="margin: 0; color: #1e293b; font-size: 1em; font-weight: 700;">الإشعارات</h3>
+                <button onclick="clearAllNotifications()" style="background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 5px; font-size: 0.8em; cursor: pointer; font-family: inherit;">مسح الكل</button>
               </div>
             </div>
             <div id="sidebar-notificationsList" style="max-height: 300px; overflow-y: auto;"></div>
             <div id="sidebar-notificationsLoadMore" style="padding: 10px; text-align: center; border-top: 1px solid #e2e8f0; display: none;">
-              <button onclick="loadMoreNotifications()" style="background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">تحميل المزيد</button>
+              <button onclick="loadMoreNotifications()" style="background: #3b82f6; color: white; border: none; padding: 7px 16px; border-radius: 5px; cursor: pointer; font-family: inherit;">تحميل المزيد</button>
             </div>
           </div>
         </div>
 
-        <!-- Special Book Match Notifications -->
+        <!-- إشعارات خاصة -->
         <div class="sidebar-notifications-container" style="position: relative;">
-          <button id="sidebar-specialNotificationsBtn" class="sidebar-btn" title="إشعارات خاصة - مطابقة الكتب">
-            <span>📚</span>
-            <span>إشعارات خاصة</span>
-            <span id="sidebar-specialNotificationsBadge" class="sidebar-badge" style="display: none;">0</span>
+          <button class="app-header-btn" id="sidebar-specialNotificationsBtn" title="إشعارات خاصة">
+            📖
+            <span id="sidebar-specialNotificationsBadge" class="app-header-badge">0</span>
           </button>
-          <!-- Special Notifications Dropdown -->
-          <div id="sidebar-specialNotificationsDropdown" class="notifications-dropdown" style="display: none; position: absolute; top: 100%; right: 0; width: 350px; max-height: 450px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden;">
-            <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: linear-gradient(135deg, #667eea 0%, #63b3ed 100%); color: white;">
+          <div id="sidebar-specialNotificationsDropdown" class="notifications-dropdown" style="display: none; position: absolute; top: calc(100% + 10px); left: 0; width: 350px; max-height: 450px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 2000; overflow: hidden;">
+            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; background: linear-gradient(135deg, #1a2744, #243354); color: white;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; font-size: 1.1em; display: flex; align-items: center; gap: 8px;">
-                  📚   
-                </h3>
-                <button onclick="clearSpecialNotifications()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer; backdrop-filter: blur(10px);">مسح الكل</button>
+                <h3 style="margin: 0; font-size: 1em; font-weight: 700;">إشعارات مطابقة الكتب</h3>
+                <button onclick="clearSpecialNotifications()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 4px 10px; border-radius: 5px; font-size: 0.8em; cursor: pointer; font-family: inherit;">مسح الكل</button>
               </div>
             </div>
             <div id="sidebar-specialNotificationsList" style="max-height: 350px; overflow-y: auto;"></div>
             <div id="sidebar-specialNotificationsLoadMore" style="padding: 10px; text-align: center; border-top: 1px solid #e2e8f0; display: none;">
-              <button onclick="loadMoreSpecialNotifications()" style="background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">تحميل المزيد</button>
+              <button onclick="loadMoreSpecialNotifications()" style="background: #3b82f6; color: white; border: none; padding: 7px 16px; border-radius: 5px; cursor: pointer; font-family: inherit;">تحميل المزيد</button>
             </div>
           </div>
         </div>
 
-        <!-- Messages -->
+        <!-- رسائل -->
         <div class="sidebar-notifications-container" style="position: relative;">
-          <button id="sidebar-messagesBtn" class="sidebar-btn" title="الرسائل الواردة">
-            <span>📧</span>
-            <span>الرسائل الواردة</span>
-            <span id="sidebar-messagesBadge" class="sidebar-badge" style="display: none;">0</span>
+          <button class="app-header-btn" id="sidebar-messagesBtn" title="الرسائل الواردة">
+            📧
+            <span id="sidebar-messagesBadge" class="app-header-badge">0</span>
           </button>
-          <!-- Messages Dropdown -->
-          <div id="sidebar-messagesDropdown" class="notifications-dropdown" style="display: none; position: absolute; top: 100%; right: 0; width: 320px; max-height: 400px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 1000; overflow: hidden;">
-            <div style="padding: 15px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+          <div id="sidebar-messagesDropdown" class="notifications-dropdown" style="display: none; position: absolute; top: calc(100% + 10px); left: 0; width: 320px; max-height: 400px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); z-index: 2000; overflow: hidden;">
+            <div style="padding: 14px 16px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: #2d3748; font-size: 1.1em;">الرسائل الواردة</h3>
-                <button onclick="clearAllMessages()" style="background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;">مسح الكل</button>
+                <h3 style="margin: 0; color: #1e293b; font-size: 1em; font-weight: 700;">الرسائل الواردة</h3>
+                <button onclick="clearAllMessages()" style="background: #ef4444; color: white; border: none; padding: 4px 10px; border-radius: 5px; font-size: 0.8em; cursor: pointer; font-family: inherit;">مسح الكل</button>
               </div>
             </div>
             <div id="sidebar-messagesList" style="max-height: 300px; overflow-y: auto;"></div>
             <div id="sidebar-messagesLoadMore" style="padding: 10px; text-align: center; border-top: 1px solid #e2e8f0; display: none;">
-              <button onclick="loadMoreMessages()" style="background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">تحميل المزيد</button>
+              <button onclick="loadMoreMessages()" style="background: #3b82f6; color: white; border: none; padding: 7px 16px; border-radius: 5px; cursor: pointer; font-family: inherit;">تحميل المزيد</button>
             </div>
           </div>
         </div>
 
-        <button class="sidebar-btn" id="sidebar-adminMessageBtn" title="إرسال رسالة للمستخدمين" style="display: none;">
-          <span>📢</span>
-          <span>إرسال رسالة للمستخدمين</span>
+        <!-- معلومات المستخدم -->
+        <div style="color: rgba(255,255,255,0.75); font-size: 0.85em; padding: 0 8px; border-right: 1px solid rgba(255,255,255,0.15); margin-right: 2px; padding-right: 10px; line-height: 1.3;">
+          <span id="sidebar-welcome-text" style="font-weight: 700; display: block;"></span>
+          <span id="sidebar-user-name" style="opacity: 0.75; font-size: 0.85em;"></span>
+        </div>
+
+        <!-- حالة الاتصال -->
+        <div id="sidebar-connectionStatus" style="display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15);">
+          <span id="sidebar-connectionStatusDot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #10b981;"></span>
+          <span id="sidebar-connectionStatusText" style="font-size: 0.8em; color: rgba(255,255,255,0.9); font-weight: 600;">متصل</span>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Sidebar (overlay drawer) -->
+    <div id="sidebar" style="position: fixed; top: 0; right: -340px; width: 320px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.12); z-index: 1002; transition: right 0.3s ease; overflow-y: auto; padding: 0;">
+      <div style="background: linear-gradient(135deg, #1a2744, #2a4365); padding: 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #3182ce; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <span style="color: #fff; font-size: 1.1em; font-weight: 800; letter-spacing: 0.5px;">⚙️ قائمة الإعدادات</span>
+        <button onclick="document.getElementById('sidebar').style.right = '-340px';" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.1em; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1.05)';" onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.transform='scale(1)';">✖</button>
+      </div>
+      <div id="sidebar-user-info" style="display:none;"></div>
+      <div style="padding: 12px;">
+        <!-- Phone Number -->
+        <div style="margin-bottom: 15px; padding: 12px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <div style="font-size: 0.9em; color: #4a5568; font-weight: 700; margin-bottom: 8px;">📱 رقم هاتف المكتبة</div>
+          <div class="toolbar-phone-group" style="display: flex; gap: 8px;">
+            <input type="text" id="shopPhoneInput" placeholder="رقم هاتف المكتبة" class="toolbar-phone-input" style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'" />
+            <button onclick="saveShopPhone()" class="toolbar-save-btn" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">حفظ</button>
+          </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 10px;">
+
+        <!-- Group: Account -->
+        <button class="sidebar-btn" id="sidebar-accountSettingsBtn" title="إعدادات الحساب">
+          <span>👤</span><span>إعدادات الحساب</span>
         </button>
-        
         <button class="sidebar-btn" id="sidebar-contactAdminBtn" title="راسل الإدارة">
-          <span>📞</span>
-          <span>راسل الإدارة</span>
+          <span>📞</span><span>راسل الإدارة</span>
         </button>
 
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 12px 10px;">
+
+        <!-- Group: System -->
         <button class="sidebar-btn" id="sidebar-levelsSettingsBtn" title="إعدادات المستويات الدراسية">
-          <span>⚙️</span>
-          <span>إعدادات المستويات</span>
+          <span>⚙️</span><span>إعدادات المستويات</span>
         </button>
 
-        <!-- Admin Panel Button (Admin Only) -->
+        <!-- Group: Admin Tools -->
+        <button class="sidebar-btn" id="sidebar-adminMessageBtn" title="إرسال رسالة للمستخدمين" style="display: none;">
+          <span>📢</span><span>إرسال رسالة للمستخدمين</span>
+        </button>
         <button class="sidebar-btn" id="sidebar-adminPanelBtn" title="لوحة الإدارة" style="display: none;">
-          <span>🛠️</span>
-          <span>إدارة المستخدمين</span>
+          <span>🛠️</span><span>إدارة المستخدمين</span>
           <span id="sidebar-usersBadge" class="sidebar-badge" style="display: none;">0</span>
         </button>
-        
-        <!-- Admin Stats Button (Admin Only) -->
         <button class="sidebar-btn" id="sidebar-adminStatsBtn" title="التقارير والإحصائيات" style="display: none;">
-          <span>📊</span>
-          <span>التقارير والإحصائيات</span>
-        </button>
-        
-        <button class="sidebar-btn" id="sidebar-accountSettingsBtn" title="إعدادات الحساب">
-          <span>👤</span>
-          <span>إعدادات الحساب</span>
+          <span>📊</span><span>التقارير والإحصائيات</span>
         </button>
 
-        <!-- Archive Button (Admin Only) -->
+        <!-- Group: Data Management -->
         <button class="sidebar-btn" id="sidebar-archiveBtn" title="أرشيف العمليات" style="display: none;">
-          <span>📋</span>
-          <span>أرشيف العمليات</span>
+          <span>📋</span><span>أرشيف العمليات</span>
         </button>
-
-        <!-- Backup & Restore Buttons (Admin Only) -->
         <button class="sidebar-btn" id="sidebar-backupBtn" title="نسخ احتياطي" style="display: none;">
-          <span>💾</span>
-          <span>نسخ احتياطي</span>
+          <span>💾</span><span>نسخ احتياطي</span>
         </button>
-
         <button class="sidebar-btn" id="sidebar-restoreBtn" title="استعادة البيانات" style="display: none;">
-          <span>📥</span>
-          <span>استعادة البيانات</span>
+          <span>📥</span><span>استعادة البيانات</span>
         </button>
-
-        <!-- Export/Import Buttons (Admin Only) -->
         <button class="sidebar-btn" id="sidebar-exportBtn" title="تصدير البيانات" style="display: none;">
-          <span>📤</span>
-          <span>تصدير البيانات</span>
+          <span>📤</span><span>تصدير البيانات</span>
         </button>
-
         <button class="sidebar-btn" id="sidebar-importBtn" title="استيراد البيانات" style="display: none;">
-          <span>📥</span>
-          <span>استيراد البيانات</span>
+          <span>📥</span><span>استيراد البيانات</span>
         </button>
-        
-        <!-- Logout Button - Always at bottom -->
-        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-          <button class="sidebar-btn" id="sidebar-logoutBtn" title="تسجيل الخروج" style="background-color: #e53e3e; color: white;">
-            <span>🚪</span>
-            <span>تسجيل الخروج</span>
+        <div style="margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+          <button class="sidebar-btn" id="sidebar-logoutBtn" title="تسجيل الخروج" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">
+            <span>🚪</span><span>تسجيل الخروج</span>
           </button>
         </div>
       </div>
     </div>
     <!-- Sidebar Overlay -->
     <div id="sidebar-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1001; display: none; opacity: 0; transition: opacity 0.3s ease;"></div>
-    
-    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; margin-top: 80px; margin-bottom: 20px;">
-        <div style="display: flex; gap: 5px; background: white; padding: 5px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <input type="text" id="shopPhoneInput" placeholder="رقم هاتف المكتبة" style="padding: 8px; border: 1px solid #cbd5e0; border-radius: 5px; width: 140px; text-align: center; font-family: inherit;" />
-          <button onclick="saveShopPhone()" style="background: #4299e1; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-family: inherit;">حفظ</button>
-        </div>
-        
-        <button onclick="showBookStatisticsModal()" style="background: #9f7aea; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: inherit; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">📊 الإحصائيات</button>
-    </div>
 
-    <div class="levels-list" id="levelsList" style="margin-top: 0px;"></div>
-    
-    <div class="section-header">
-      <h2>الكتب المختارة</h2>
-      
-      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;">
-        <button class="clear-all-btn" onclick="clearAllChosenBooks()" title="مسح جميع الكتب المختارة">🗑️ مسح الكل</button>
-        <button class="export-btn" onclick="exportPDF()">🖨️ طباعة (PDF)</button>
-        <button class="export-btn" onclick="exportPDFAlphabetical()" style="background-color: #f6ad55; color: white;">🖨️ الطباعة ابجديا</button>
+
+
+    <!-- ===== MAIN LAYOUT: Two Columns ===== -->
+    <div class="main-layout">
+
+      <!-- LEFT: Chosen Books Panel (large) -->
+      <div class="chosen-panel">
+        <div class="chosen-panel-header" style="flex-wrap: wrap; justify-content: space-between; padding: 12px 15px; border-radius: 12px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; position: sticky; top: 70px; z-index: 100;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1;">
+            <div class="chosen-panel-title" style="margin-left: 10px; white-space: nowrap; font-size: 1.1em; color: #1e293b;">الكتب المختارة</div>
+            
+            <div style="width: 1px; height: 28px; background: #cbd5e1; margin: 0 5px;"></div>
+            
+            <!-- Group 1 -->
+            <button type="button" onclick="showRequestedBooksModal()" style="padding: 8px 12px; font-size: 0.9em; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: linear-gradient(135deg, #f6ad55, #ed8936); color: white; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(237,137,54,0.3);">
+              📝 الكتب المطلوبة
+              <span id="requestedBooksBadge" style="background: white; color: #dd6b20; padding: 2px 6px; border-radius: 10px; font-size: 0.8em; margin-right: 2px;">0</span>
+            </button>
+            
+            <button type="button" onclick="showBookStatisticsModal()" style="padding: 8px 12px; font-size: 0.9em; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: linear-gradient(135deg, #9f7aea, #805ad5); color: white; box-shadow: 0 2px 4px rgba(128,90,213,0.3);">📊 الإحصائيات</button>
+
+            <div style="width: 1px; height: 28px; background: #cbd5e1; margin: 0 5px;"></div>
+
+            <!-- Group 2 -->
+            <button type="button" onclick="showExchangeForm('offer')" style="padding: 8px 12px; font-size: 0.9em; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: linear-gradient(135deg, #48bb78, #38a169); color: white; box-shadow: 0 2px 4px rgba(56,161,105,0.3);">📚 عرض كتاب للبيع</button>
+            
+            <button type="button" onclick="showExchangeForm('request')" style="padding: 8px 12px; font-size: 0.9em; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: linear-gradient(135deg, #4299e1, #3182ce); color: white; box-shadow: 0 2px 4px rgba(49,130,206,0.3);">🔍 طلب كتاب للشراء</button>
+          </div>
+
+          <div class="chosen-panel-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="chosen-action-btn danger" onclick="clearAllChosenBooks()">🗑️ مسح الكل</button>
+            <button class="chosen-action-btn primary" onclick="exportPDF()">🖨️ طباعة (PDF)</button>
+            <button class="chosen-action-btn secondary" onclick="exportPDFAlphabetical()">🖨️ أبجدياً</button>
+          </div>
+        </div>
+        <div class="chosen-books-content">
+          <div id="chosenBooksTables"></div>
+        </div>
+        <div class="chosen-books-footer">
+          <button class="chosen-action-btn primary" onclick="exportPDF()" style="padding: 10px 22px; font-size: 0.95em;">🖨️ طباعة اللائحة (PDF)</button>
+          <button class="chosen-action-btn secondary" onclick="exportPDFAlphabetical()" style="padding: 10px 22px; font-size: 0.95em;">🖨️ الطباعة أبجدياً</button>
+        </div>
       </div>
-    </div>
-    <div id="chosenBooksTables"></div>
-    <div style="text-align: center; margin-top: 20px; margin-bottom: 40px; display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-      <button class="export-btn" onclick="exportPDF()" style="font-size: 1.1em; padding: 12px 25px;">🖨️ طباعة اللائحة (PDF)</button>
-      <button class="export-btn" onclick="exportPDFAlphabetical()" style="font-size: 1.1em; padding: 12px 25px; background-color: #f6ad55; color: white;">🖨️ الطباعة ابجديا</button>
-    </div>
-    
-    <!-- Book Exchange Section -->
+
+      <!-- RIGHT: Levels Panel (narrow) -->
+      <div class="levels-panel">
+        <div class="levels-panel-header">
+          📋 المستويات الدراسية
+        </div>
+        <div class="levels-panel-body">
+          <div class="levels-list" id="levelsList"></div>
+        </div>
+      </div>
+
+    </div><!-- end .main-layout -->
+
+        <!-- Book Exchange Section -->
     <div class="exchange-section">
       <div class="exchange-header">
         <h2>تبادل الكتب</h2>
-        <div class="exchange-buttons">
-          <button class="exchange-btn offer" onclick="showExchangeForm('offer')">عرض كتاب للبيع 📚</button>
-          <button class="exchange-btn request" onclick="showExchangeForm('request')">طلب كتاب للشراء 🔍</button>
-        </div>
       </div>
       
       <div class="exchange-tabs">
@@ -418,7 +442,7 @@
       
       <!-- Password setting for deletion -->
       <div style="margin-bottom: 20px; text-align: center; background: #f7fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <label for="deletePasswordSetting" style="display: block; margin-bottom: 10px; font-weight: bold; color: #4a5568;">الرقم السري لحذف الكتب والمواد:</label>
+        <label for="deletePasswordSetting" style="display: block; margin-bottom: 10px; font-weight: bold; color: #4a5568;">الرقم السري لحذف وتعديل الكتب والمواد:</label>
         <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
           <input type="password" id="deletePasswordSetting" placeholder="اترك فارغاً لعدم استخدام رقم سري" style="padding: 8px; border: 1px solid #cbd5e0; border-radius: 5px; text-align: center; font-family: inherit; width: 60%;">
           <button onclick="saveDeletePassword()" style="background: #4299e1; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-family: inherit;">حفظ</button>
@@ -446,6 +470,83 @@
       
       <div id="bookStatisticsContainer">
         <!-- Tables will be injected here dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Requested Books Modal -->
+  <!-- Print Options Modal -->
+  <div class="modal" id="printOptionsModal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999;">
+    <div class="modal-content" style="background:white; padding:30px; border-radius:15px; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.2); max-width:400px; width:90%;">
+      <h3 style="color:#2b6cb0; margin-top:0; font-size:1.4em; margin-bottom:20px;">خيارات الطباعة</h3>
+      <p style="color:#4a5568; margin-bottom:25px; font-size:1.1em;">هل ترغب في إظهار أثمنة الكتب في اللائحة المطبوعة؟</p>
+      <div style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap;">
+        <button onclick="confirmPrintOptions(true)" style="background:linear-gradient(135deg, #48bb78, #38a169); color:white; border:none; padding:12px 20px; border-radius:8px; cursor:pointer; font-size:1.05em; font-weight:bold; flex:1; min-width:120px;">الطباعة مع الأثمنة 💰</button>
+        <button onclick="confirmPrintOptions(false)" style="background:linear-gradient(135deg, #4299e1, #3182ce); color:white; border:none; padding:12px 20px; border-radius:8px; cursor:pointer; font-size:1.05em; font-weight:bold; flex:1; min-width:120px;">بدون أثمنة 📄</button>
+      </div>
+      <button onclick="document.getElementById('printOptionsModal').style.display='none'" style="background:#edf2f7; color:#4a5568; border:1px solid #cbd5e0; padding:10px 20px; border-radius:8px; cursor:pointer; font-size:1em; margin-top:20px; width:100%;">إلغاء</button>
+    </div>
+  </div>
+
+  <div class="modal" id="requestedBooksModal">
+    <div class="modal-content" style="max-width: 95vw; width: 900px; max-height: 85vh; overflow-y: hidden; display: flex; flex-direction: column;">
+      <span class="close-btn" onclick="closeRequestedBooksModal()">&times;</span>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="color:#667eea; margin: 0; font-size: 1.1em;">📝 الكتب المطلوبة</h3>
+        <button onclick="printRequestedBooks()" style="background: #48bb78; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: bold;">🖨️ طباعة القائمة</button>
+      </div>
+
+      <div style="display: flex; gap: 20px; flex: 1; overflow: hidden; align-items: flex-start; flex-wrap: wrap;">
+        <!-- Right Side: Form -->
+        <div style="flex: 0 0 280px; background: #f7fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; width: 100%;">
+          <h4 style="margin-bottom: 15px; color: #4a5568; font-size: 0.95em;">➕ تسجيل طلب جديد</h4>
+          <form id="addRequestedBookForm" class="auth-form" onsubmit="addRequestedBook(event)">
+            <div class="exchange-form-group" style="margin-bottom: 10px;">
+              <label class="exchange-form-label" style="font-size: 0.85em;" for="requestName">اسم صاحب الطلب</label>
+              <input type="text" class="exchange-form-input" id="requestName" list="customerNamesList" placeholder="الاسم" style="padding: 6px; font-size: 0.85em;" autocomplete="off" required>
+              <datalist id="customerNamesList"></datalist>
+            </div>
+            <div class="exchange-form-group" style="margin-bottom: 10px;">
+              <label class="exchange-form-label" style="font-size: 0.85em;" for="requestLevel">المستوى</label>
+              <select class="exchange-form-input" id="requestLevel" onchange="populateRequestedBooks()" style="padding: 6px; font-size: 0.85em;" required>
+                <option value="">-- اختر المستوى --</option>
+              </select>
+            </div>
+            <div class="exchange-form-group" style="margin-bottom: 15px;">
+              <label class="exchange-form-label" style="font-size: 0.85em;">الكتب المطلوبة (يمكنك تحديد عدة كتب)</label>
+              <div class="exchange-form-input" id="requestBooksContainer" style="padding: 6px; font-size: 0.85em; height: 120px; overflow-y: auto; border: 1px solid #cbd5e0; border-radius: 5px; background: #fff; text-align: right;">
+                <div style="color: #a0aec0; text-align: center; margin-top: 10px;">-- المرجو اختيار المستوى أولاً --</div>
+              </div>
+            </div>
+            <button type="submit" class="exchange-form-submit" style="width: 100%; padding: 8px; font-size: 0.9em;">➕ إضافة الطلب</button>
+          </form>
+        </div>
+
+        <!-- Left Side: Table & Search -->
+        <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 300px; height: 100%;">
+          <div style="margin-bottom: 10px; display: flex; align-items: center; background: white; padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 1em; margin-left: 8px;">🔍</span>
+            <input type="text" id="searchRequestedBooksInput" oninput="filterRequestedBooks()" placeholder="ابحث باسم الزبون أو اسم الكتاب..." style="width: 100%; border: none; outline: none; padding: 4px; font-family: inherit; font-size: 0.85em;">
+          </div>
+          
+          <div style="overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; height: 100%;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+              <thead>
+                <tr style="background: #4a5568; color: white; position: sticky; top: 0;">
+                  <th style="padding: 8px; text-align: right;">الاسم</th>
+                  <th style="padding: 8px; text-align: right;">المستوى</th>
+                  <th style="padding: 8px; text-align: right;">الكتاب</th>
+                  <th style="padding: 8px; text-align: center;">التاريخ</th>
+                  <th style="padding: 8px; text-align: center;">إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="requestedBooksTableBody">
+                <!-- Data will be injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -761,6 +862,10 @@
           <input type="text" class="exchange-form-input" id="bookName" placeholder="أدخل اسم الكتاب" required>
         </div>
         <div class="exchange-form-group">
+          <label class="exchange-form-label" for="bookPrice">الثمن (اختياري)</label>
+          <input type="number" step="0.01" class="exchange-form-input" id="bookPrice" placeholder="أدخل ثمن الكتاب بالدرهم">
+        </div>
+        <div class="exchange-form-group">
           <label class="exchange-form-label" for="bookImage">صورة الكتاب (اختياري - أقل من 1MB)</label>
           <input type="file" class="exchange-form-input" id="bookImage" accept="image/*" onchange="previewBookImage(this)">
           <div id="imagePreview" style="margin-top: 10px; text-align: center; display: none;">
@@ -786,6 +891,17 @@
 
   <div id="connection-status"></div>
 
+  <!-- ===== SCROLL TO TOP BUTTON ===== -->
+  <button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="الرجوع للأعلى"
+    style="position: fixed; bottom: 28px; left: 28px; z-index: 999;
+           width: 48px; height: 48px; border-radius: 50%;
+           background: var(--navy); color: white; border: none;
+           font-size: 1.2em; cursor: pointer;
+           box-shadow: 0 4px 16px rgba(26,39,68,0.35);
+           display: none; align-items: center; justify-content: center;
+           transition: all 0.25s ease;
+           -webkit-app-region: no-drag; pointer-events: auto;">↑</button>
+
   <!-- Firebase SDKs (using stable version 9.23.0) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -794,7 +910,22 @@
 
   <!-- تحميل إعدادات Firebase من ملف منفصل -->
   <script src="config.js"></script>
-  <script src="main.js"></script>
+  <script src="main.js?v=1789629715734"></script>
   <script src="tracking-helper.js"></script>
+
+  <script>
+    // ===== Scroll to top button logic =====
+    window.addEventListener('scroll', function() {
+      var btn = document.getElementById('scrollTopBtn');
+      if (!btn) return;
+      if (window.scrollY > 300) {
+        btn.style.display = 'flex';
+        btn.style.opacity = '1';
+      } else {
+        btn.style.opacity = '0';
+        setTimeout(function(){ if(window.scrollY<=300) btn.style.display='none'; }, 250);
+      }
+    });
+  </script>
 </body>
 </html>

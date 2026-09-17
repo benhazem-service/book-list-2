@@ -5,7 +5,7 @@ const lines = content.split(/\r?\n/);
 // Find the line that is exactly `        .replace(/"/g, '&quot;')`
 let targetIndex = -1;
 for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes('replace(/"/g, \\'&quot;\\')')) {
+    if (lines[i].includes(`replace(/"/g, '&quot;')`)) {
         targetIndex = i;
         break;
     }
