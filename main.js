@@ -131,61 +131,109 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
          return 0;
       }
 
-      // Generate a simple 1-dimensional table
-      let theadHTML = `
-        <tr>
-          <th style="text-align: right;">اسم الكتاب (المستوى)</th>
-          <th style="width: 40px; text-align: center;">العدد</th>
-          ${showPrices ? '<th style="width: 60px; text-align: center;">الثمن</th>' : ''}
-          <th style="width: 25px; text-align: center;">✔</th>
-        </tr>
-      `;
-
-      let tbodyHTML = '';
+      // Generate tables per level or a flat list
+      let tablesHTML = '';
       
-      // Iterate over global levels array to maintain user's order (smallest to largest)
-      let isFirstLevel = true;
-      levels.forEach(levelObj => {
-         const levelName = levelObj.name;
-         if (chosenBooksData[levelName]) {
-             const booksObj = chosenBooksData[levelName];
-             const bookTitles = Object.keys(booksObj);
-             if (bookTitles.length > 0) {
-                 if (!isFirstLevel) {
-                     // Add a small gap between levels (spans the 3 or 4 columns)
-                     tbodyHTML += `<tr class="level-spacer"><td colspan="${showPrices ? 4 : 3}"></td></tr>`;
-                 }
-                 isFirstLevel = false;
+      if (options.flatAlphabetical) {
+        let allBooksMap = {};
+        levels.forEach(levelObj => {
+          const levelName = levelObj.name;
+          if (chosenBooksData[levelName]) {
+            const booksObj = chosenBooksData[levelName];
+            for (const title in booksObj) {
+              const formattedTitle = title + ' (' + levelName + ')';
+              const price = getBookPrice(title, levelName);
+              if (!allBooksMap[formattedTitle]) {
+                  allBooksMap[formattedTitle] = { count: 0, price: price };
+              }
+              allBooksMap[formattedTitle].count += (Number(booksObj[title]) || 1);
+            }
+          }
+        });
+        
+        const bookTitles = Object.keys(allBooksMap);
+        if (bookTitles.length > 0) {
+          const sortedBooks = bookTitles.sort((a, b) => a.localeCompare(b, 'ar'));
+          
+          let listHTML = `<div class="flat-list-wrapper"><ul class="flat-list" style="list-style-type: none; padding: 0; margin: 0;">`;
+          sortedBooks.forEach(title => {
+            const b = allBooksMap[title];
+            grandTotalPrice += (b.price * b.count);
+            totalCopiesCount += b.count;
+            totalBookTitlesCount++;
+            
+            listHTML += `
+              <li style="margin-bottom: 2px; break-inside: avoid; page-break-inside: avoid; border-bottom: 1px dashed #ccc; padding-bottom: 2px; display: flex; justify-content: space-between; align-items: center; line-height: 1.2;">
+                <span style="font-weight: 600; font-size: 10px; margin-left: 6px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(title)}</span>
+                <span style="white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                  <span style="font-weight: bold; font-size: 9px; background-color: #f1f5f9; padding: 1px 4px; border-radius: 3px; border: 1px solid #e2e8f0;">${b.count}</span>
+                  ${showPrices && b.price > 0 ? `<span style="font-size: 9px;">${b.price} درهم</span>` : ''}
+                  <span class="check-box" style="display: inline-block; width: 9px; height: 9px; border: 1px solid #000; margin-right: 2px;"></span>
+                </span>
+              </li>
+            `;
+          });
+          listHTML += '</ul></div>';
+          tablesHTML = listHTML;
+        }
+      } else {
+        // Iterate over global levels array to maintain user's order (smallest to largest)
+        levels.forEach(levelObj => {
+           const levelName = levelObj.name;
+           if (chosenBooksData[levelName]) {
+               const booksObj = chosenBooksData[levelName];
+               const bookTitles = Object.keys(booksObj);
+               if (bookTitles.length > 0) {
+                   let levelTbodyHTML = '';
 
-                 // Sort books in this level alphabetically
-                 const levelSortedBooks = bookTitles
-                     .sort((a, b) => a.localeCompare(b, 'ar'))
-                     .map(title => {
-                         const count = Number(booksObj[title]) || 1;
-                         const price = getBookPrice(title, levelName);
-                         const formattedTitle = title + ' (' + levelName + ')';
-                         
-                         grandTotalPrice += (price * count);
-                         totalCopiesCount += count;
-                         totalBookTitlesCount++;
-                         
-                         return { formattedTitle, count, price };
-                     });
+                   // Sort books in this level alphabetically
+                   const levelSortedBooks = bookTitles
+                       .sort((a, b) => a.localeCompare(b, 'ar'))
+                       .map(title => {
+                           const count = Number(booksObj[title]) || 1;
+                           const price = getBookPrice(title, levelName);
+                           
+                           grandTotalPrice += (price * count);
+                           totalCopiesCount += count;
+                           totalBookTitlesCount++;
+                           
+                           return { title, count, price };
+                       });
 
-                 // ALWAYS render one book per row
-                 levelSortedBooks.forEach(b => {
-                     tbodyHTML += `
-                       <tr>
-                         <td class="col-title">${escapeHTML(b.formattedTitle)}</td>
-                         <td class="col-count"><span class="count-pill">${b.count}</span></td>
-                         ${showPrices ? `<td style="text-align: center;">${b.price > 0 ? b.price + ' درهم' : '-'}</td>` : ''}
-                         <td class="col-check"><span class="check-box"></span></td>
-                       </tr>
-                     `;
-                 });
-             }
-         }
-      });
+                   // ALWAYS render one book per row
+                   levelSortedBooks.forEach(b => {
+                       levelTbodyHTML += `
+                         <tr>
+                           <td class="col-title">${escapeHTML(b.title)}</td>
+                           <td class="col-count"><span class="count-pill">${b.count}</span></td>
+                           ${showPrices ? `<td style="text-align: center;">${b.price > 0 ? b.price + ' درهم' : '-'}</td>` : ''}
+                           <td class="col-check"><span class="check-box"></span></td>
+                         </tr>
+                       `;
+                   });
+
+                   tablesHTML += `
+                     <div class="level-table-container">
+                       <div class="level-table-title">المستوى: ${escapeHTML(levelName)}</div>
+                       <table class="compact-table">
+                         <thead>
+                           <tr>
+                             <th style="text-align: right;">اسم الكتاب</th>
+                             <th style="width: 40px; text-align: center;">العدد</th>
+                             ${showPrices ? '<th style="width: 60px; text-align: center;">الثمن</th>' : ''}
+                             <th style="width: 25px; text-align: center;">✔</th>
+                           </tr>
+                         </thead>
+                         <tbody>
+                           ${levelTbodyHTML}
+                         </tbody>
+                       </table>
+                     </div>
+                   `;
+               }
+           }
+        });
+      }
 
       if (totalBookTitlesCount === 0) {
         showTemporaryAlert('لا توجد كتب مختارة لتصديرها', 'warning');
@@ -217,10 +265,32 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
     .print-meta { font-size: 10px; display: flex; gap: 10px; }
     
     .table-wrapper {
-      ${!showPrices ? 'column-count: 2; column-gap: 15px;' : ''}
+      ${(!options.flatAlphabetical && !showPrices) ? 'column-count: 2; column-gap: 15px;' : ''}
     }
     
-    .compact-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    .flat-list-wrapper {
+      column-count: 2;
+      column-gap: 12px;
+    }
+    
+    .level-table-container {
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-bottom: 12px;
+    }
+    
+    .level-table-title {
+      font-size: 12px;
+      font-weight: 700;
+      background-color: #f1f5f9;
+      border: 1px solid #000;
+      border-bottom: none;
+      padding: 3px 5px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    
+    .compact-table { width: 100%; border-collapse: collapse; margin-bottom: 0px; }
     .compact-table th, .compact-table td { border: 1px solid #000; padding: 3px 4px; vertical-align: middle; }
     .compact-table th { background-color: #f1f5f9; font-weight: 700; font-size: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .compact-table tr { break-inside: avoid; page-break-inside: avoid; }
@@ -230,7 +300,6 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
     .col-check { text-align: center; }
     .count-pill { font-weight: 700; font-size: 11px; }
     .check-box { display: inline-block; width: 12px; height: 12px; border: 1px solid #000; }
-    .level-spacer td { border-left: none; border-right: none; height: 6px; background-color: #e2e8f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     
     @media print {
       @page { margin: 5mm; }
@@ -242,7 +311,8 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
       .col-title { font-size: 10px; }
       .count-pill { font-size: 10px; }
       .check-box { width: 10px; height: 10px; }
-      .level-spacer td { height: 4px; }
+      .level-table-container { margin-bottom: 8px; }
+      .level-table-title { font-size: 11px; padding: 2px 4px; }
     }
   </style>
 </head>
@@ -258,10 +328,7 @@ const appDataDocRef = db.collection('appConfig').doc('data'); // Using a single 
   </div>
 
   <div class="table-wrapper">
-    <table class="compact-table">
-      <thead>${theadHTML}</thead>
-      <tbody>${tbodyHTML}</tbody>
-    </table>
+    ${tablesHTML}
   </div>
 
   <script>
